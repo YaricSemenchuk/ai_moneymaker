@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>MoneyMaker — Telegram Mini App preview</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif; background:#0b0d12; color:#e7ecf3; }
+
+  /* ===== БРЕНДОВАЯ ПАЛИТРА MoneyMaker ===== */
+  :root {
+    --brand-1: #7c3aed;   /* electric violet */
+    --brand-2: #06b6d4;   /* cyan */
+    --money:   #10b981;   /* emerald (деньги) */
+    --gold:    #f59e0b;   /* warning / new */
+    --danger:  #ef4444;
+    --ink:     #0f1422;
+    --ink-2:   #1a2236;
+    --ink-3:   #232d45;
+    --line:    rgba(255,255,255,0.08);
+    --text:    #ffffff;
+    --hint:    #8a93a8;
+    --brand-grad: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);
+    --money-grad: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+    --gold-grad:  linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  }
+
+  .phone {
+    width: 360px; height: 740px;
+    border-radius: 44px;
+    background: #000;
+    padding: 11px;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.55), 0 0 0 2px #1a1a1a, inset 0 0 0 2px #2a2a2a;
+    position: relative;
+  }
+  .notch {
+    position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+    width: 100px; height: 26px; background: #000; border-radius: 0 0 16px 16px; z-index: 10;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    background: var(--ink);
+    border-radius: 33px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    color: var(--text); position: relative;
+  }
+  .tg-header {
+    background: var(--ink);
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 14px; position: relative;
+  }
+  .tg-header .title { font-weight: 600; }
+  .tg-header .close, .tg-header .menu { color: #8ab4f8; }
+  .content { flex: 1; overflow-y: auto; padding: 14px 14px 100px; }
+  .content::-webkit-scrollbar { display: none; }
+
+  .card {
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px;
+  }
+  .card-brand {
+    background: var(--brand-grad);
+    border-radius: 16px; padding: 16px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 8px 24px -8px rgba(124,58,237,0.5);
+  }
+  .card-brand::after {
+    content:''; position:absolute; right:-30px; top:-30px;
+    width:120px; height:120px; border-radius:50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+  }
+  .hint { color: var(--hint); font-size: 12px; }
+  .pill { display:inline-flex; align-items:center; gap:4px; padding: 3px 9px; border-radius: 99px; font-size: 10px; font-weight: 600; }
+  .pill-money  { background: rgba(16,185,129,0.15); color:#34d399; }
+  .pill-gold   { background: rgba(245,158,11,0.15); color:#fbbf24; }
+  .pill-danger { background: rgba(239,68,68,0.15);  color:#f87171; }
+  .pill-brand  { background: rgba(124,58,237,0.18); color:#a78bfa; }
+  .pill-cyan   { background: rgba(6,182,212,0.15);  color:#22d3ee; }
+
+  .tabbar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(15,20,34,0.85);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: repeat(6, 1fr);
+    padding: 8px 4px 14px;
+  }
+  .tab { display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10px; color:var(--hint); transition:.2s; }
+  .tab .ico { font-size:18px; }
+  .tab.active { color: transparent; background: var(--brand-grad); -webkit-background-clip: text; background-clip: text; font-weight:600; }
+  .tab.active .ico { filter: drop-shadow(0 0 6px rgba(124,58,237,0.6)); }
+
+  .mainbtn {
+    position: absolute; bottom: 76px; left: 14px; right: 14px;
+    background: var(--brand-grad); color: #fff;
+    padding: 14px; border-radius: 14px; text-align: center;
+    font-weight: 700; font-size: 15px; letter-spacing: 0.2px;
+    box-shadow: 0 10px 24px -6px rgba(124,58,237,0.55), 0 2px 0 rgba(255,255,255,0.1) inset;
+  }
+  .mainbtn-money { background: var(--money-grad); box-shadow: 0 10px 24px -6px rgba(16,185,129,0.5); }
+
+  .bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .bar > span { display:block; height:100%; border-radius:4px; }
+
+  .avatar {
+    width:40px; height:40px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; color:#fff; font-size:15px;
+  }
+
+  .seg { background: var(--ink-2); border:1px solid var(--line); border-radius:12px; padding:3px; display:inline-flex; font-size:12px; }
+  .seg > div { padding:6px 11px; border-radius:9px; color:var(--hint); white-space:nowrap; }
+  .seg > div.on { background: var(--brand-grad); color:#fff; font-weight:600; }
+
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--brand-grad);
+    display:inline-flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:14px;
+    box-shadow: 0 4px 12px -2px rgba(124,58,237,0.5);
+  }
+
+  .glow-dot { width:6px; height:6px; border-radius:50%; background: var(--money); box-shadow: 0 0 8px var(--money); display:inline-block; }
+
+  h1.brand { font-size:28px; font-weight:800; letter-spacing:-0.5px; background: var(--brand-grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .phone-label { text-align:center; margin-top:14px; font-size:13px; color:var(--hint); font-weight:600; }
+  .phone-label b { color:#fff; }
+
+  /* sparkline */
+  .spark { height: 40px; width: 100%; }
+</style>
+</head>
+<body class="min-h-screen p-10">
+
+<div class="max-w-[1500px] mx-auto">
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-2">
+      <div class="logo-mark">M</div>
+      <h1 class="brand">MoneyMaker AI · Mini App</h1>
+    </div>
+    <p class="text-sm" style="color:var(--hint)">Тёмная брендовая палитра • градиент violet→cyan для интерактива • emerald для денег/успеха • amber для новых лидов</p>
+  </div>
+
+  <div class="grid grid-cols-3 gap-x-8 gap-y-12 justify-items-center">
+
+    <!-- ====================== TAB 1: ДАШБОРД ====================== -->
+    <div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="tg-header">
+          <span class="close">‹ Закрыть</span>
+          <div class="flex items-center gap-2">
+            <div class="logo-mark" style="width:22px;height:22px;font-size:11px">M</div>
+            <span class="title">MoneyMaker AI</span>
+          </div>
+          <span class="menu">⋯</span>
+        </div>
+        <div class="content">
+          <!-- Hero brand card -->
+          <div class="card-brand mb-3">
+            <div class="flex items-center justify-between mb-3 relative z-10">
+              <div>
+                <div style="font-size:11px; opacity:0.85; text-transform:uppercase; letter-spacing:1px">Сегодня заработано</div>
+                <div style="font-size:32px; font-weight:800; margin-top:2px">$1 247<span style="font-size:18px;opacity:0.7">.50</span></div>
+              </div>
+              <div style="font-size:36px">💰</div>
+            </div>
+            <div class="flex items-center gap-2 relative z-10" style="font-size:12px">
+              <span class="glow-dot"></span>
+              <span>4 агента онлайн · 47 действий за час</span>
+            </div>
+          </div>
+
+          <!-- KPI grid -->
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <div class="card">
+              <div class="hint uppercase" style="font-size:10px">Группы</div>
+              <div style="font-size:22px;font-weight:700">1 240</div>
+              <div style="font-size:11px;color:#34d399">+18 за день</div>
+            </div>
+            <div class="card">
+              <div class="hint uppercase" style="font-size:10px">Сообщения</div>
+              <div style="font-size:22px;font-weight:700">8 932</div>
+              <div style="font-size:11px;color:#34d399">+312 за день</div>
+            </div>
+            <div class="card">
+              <div class="hint uppercase" style="font-size:10px">Лиды</div>
+              <div style="font-size:22px;font-weight:700;color:#fbbf24">612</div>
+              <div style="font-size:11px;color:var(--hint)">conv 6.8%</div>
+            </div>
+            <div class="card">
+              <div class="hint uppercase" style="font-size:10px">CTR ответов</div>
+              <div style="font-size:22px;font-weight:700;color:#a78bfa">23.4%</div>
+              <div style="font-size:11px;color:#34d399">↑ 2.1%</div>
+            </div>
+          </div>
+
+          <!-- Activity sparkline -->
+          <div class="card mb-3">
+            <div class="flex items-center justify-between mb-2">
+              <div style="font-weight:600;font-size:14px">📈 Активность 24ч</div>
+              <span class="pill pill-brand">live</span>
+            </div>
+            <svg class="spark" viewBox="0 0 300 50" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0" stop-color="#7c3aed" stop-opacity="0.5"/>
+                  <stop offset="1" stop-color="#7c3aed" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,40 L20,35 L40,38 L60,28 L80,30 L100,20 L120,22 L140,15 L160,18 L180,10 L200,14 L220,8 L240,12 L260,6 L280,9 L300,4 L300,50 L0,50 Z" fill="url(#g1)"/>
+              <path d="M0,40 L20,35 L40,38 L60,28 L80,30 L100,20 L120,22 L140,15 L160,18 L180,10 L200,14 L220,8 L240,12 L260,6 L280,9 L300,4" stroke="#a78bfa" stroke-width="2" fill="none"/>
+            </svg>
+          </div>
+
+          <!-- Статусы групп -->
+          <div class="card mb-3">
+            <div style="font-weight:600;font-size:14px;margin-bottom:10px">📊 Статусы групп</div>
+            <div class="space-y-2">
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span>joined</span><span class="hint">770 · 62%</span></div>
+                <div class="bar"><span style="width:62%;background:var(--brand-grad)"></span></div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span>active</span><span class="hint">384 · 31%</span></div>
+                <div class="bar"><span style="width:31%;background:var(--money)"></span></div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span>banned</span><span class="hint">86 · 7%</span></div>
+                <div class="bar"><span style="width:7%;background:var(--danger)"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mainbtn">▶ Запустить всех агентов</div>
+        <div class="tabbar">
+          <div class="tab active"><div class="ico">📊</div>Главная</div>
+          <div class="tab"><div class="ico">👥</div>Группы</div>
+          <div class="tab"><div class="ico">💬</div>Чаты</div>
+          <div class="tab"><div class="ico">👤</div>Лиды</div>
+          <div class="tab"><div class="ico">🚀</div>Посты</div>
+          <div class="tab"><div class="ico">🤖</div>Агенты</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label"><b>1 · Главная</b> — KPI, баланс, live-активность</div>
+    </div>
+
+    <!-- ====================== TAB 2: ГРУППЫ ====================== -->
+    <div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="tg-header">
+          <span class="close">‹</span>
+          <span class="title">Группы · 1 240</span>
+          <span class="menu">🔍</span>
+        </div>
+        <div class="content">
+          <div class="seg mb-3" style="flex-wrap:wrap;gap:2px">
+            <div class="on">Все</div>
+            <div>joined</div>
+            <div>active</div>
+            <div>banned</div>
+          </div>
+
+          <!-- Inline auto-scout widget -->
+          <div class="card mb-3" style="background:linear-gradient(135deg, rgba(124,58,237,0.15), rgba(6,182,212,0.1));border-color:rgba(124,58,237,0.3)">
+            <div class="flex items-center justify-between mb-2">
+              <div style="font-weight:600;font-size:13px">🤖 Авто-парсинг</div>
+              <span class="pill pill-brand">+ категория</span>
+            </div>
+            <div class="hint" style="margin-bottom:8px">Следующий запуск через <b style="color:#fff">2ч 14мин</b></div>
+            <div class="flex flex-wrap gap-1">
+              <span class="pill pill-brand">заработок</span>
+              <span class="pill pill-brand">крипта</span>
+              <span class="pill pill-cyan">подработка</span>
+              <span class="pill pill-cyan">финансы</span>
+            </div>
+          </div>
+
+          <!-- Groups list -->
+          <div class="space-y-2">
+            <div class="card">
+              <div class="flex items-center gap-3">
+                <div class="avatar" style="background:var(--brand-grad)">З</div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">Заработок 24/7</div>
+                  <div class="hint" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">12.4K участников · 38 ответов</div>
+                </div>
+                <span class="pill pill-money">active</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="flex items-center gap-3">
+                <div class="avatar" style="background:var(--money-grad)">К</div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">Крипта инсайды UA</div>
+                  <div class="hint">8.1K участников · 22 ответа</div>
+                </div>
+                <span class="pill pill-money">active</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="flex items-center gap-3">
+                <div class="avatar" style="background:var(--gold-grad)">П</div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">Подработка Киев</div>
+                  <div class="hint">4.7K · ожидает заявки</div>
+                </div>
+                <span class="pill pill-gold">request</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="flex items-center gap-3">
+                <div class="avatar" style="background:linear-gradient(135deg,#06b6d4,#7c3aed)">Ф</div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">Финансы для всех</div>
+                  <div class="hint">15.2K · модерация</div>
+                </div>
+                <span class="pill pill-cyan">joined</span>
+              </div>
+            </div>
+            <div class="card" style="opacity:0.55">
+              <div class="flex items-center gap-3">
+                <div class="avatar" style="background:linear-gradient(135deg,#ef4444,#7c3aed)">С</div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">Спам каналы</div>
+                  <div class="hint">причина: spam · 2 дня назад</div>
+                </div>
+                <span class="pill pill-danger">banned</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mainbtn">＋ Найти новые группы</div>
+        <div class="tabbar">
+          <div class="tab"><div class="ico">📊</div>Главная</div>
+          <div class="tab active"><div class="ico">👥</div>Группы</div>
+          <div class="tab"><div class="ico">💬</div>Чаты</div>
+          <div class="tab"><div class="ico">👤</div>Лиды</div>
+          <div class="tab"><div class="ico">🚀</div>Посты</div>
+          <div class="tab"><div class="ico">🤖</div>Агенты</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label"><b>2 · Группы</b> — фильтры, авто-парсинг, статусы</div>
+    </div>
+
+    <!-- ====================== TAB 3: ЧАТЫ ====================== -->
+    <div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="tg-header">
+          <span class="close">‹</span>
+          <span class="title">Сообщения</span>
+          <span class="menu">⚙︎</span>
+        </div>
+        <div class="content">
+          <div class="seg mb-3">
+            <div class="on">Все</div>
+            <div>Отправленные</div>
+            <div>Ответы</div>
+          </div>
+
+          <div class="space-y-2">
+            <!-- Outgoing -->
+            <div class="card">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <div class="avatar" style="width:26px;height:26px;font-size:11px;background:var(--brand-grad)">A1</div>
+                  <span style="font-size:12px;font-weight:600">agent_anna</span>
+                  <span class="hint">→ Заработок 24/7</span>
+                </div>
+                <span class="pill pill-money">sent</span>
+              </div>
+              <div style="font-size:13px;line-height:1.4">Тоже искала способы подзаработать. Попробовала пару заданий на одной платформе — пришло около $40 за вечер 🤔</div>
+              <div class="hint mt-2" style="font-size:11px">2 мин назад · в ответ @alex_crypto</div>
+            </div>
+
+            <!-- Reply -->
+            <div class="card" style="border-left:3px solid var(--money)">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <div class="avatar" style="width:26px;height:26px;font-size:11px;background:var(--money-grad)">@</div>
+                  <span style="font-size:12px;font-weight:600">@alex_crypto</span>
+                  <span class="hint">ответил</span>
+                </div>
+                <span class="pill pill-money">reply ✓</span>
+              </div>
+              <div style="font-size:13px;line-height:1.4">а что за платформа? скинь ссылку</div>
+              <div class="hint mt-2" style="font-size:11px">1 мин назад</div>
+            </div>
+
+            <!-- Outgoing 2 -->
+            <div class="card">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <div class="avatar" style="width:26px;height:26px;font-size:11px;background:var(--gold-grad)">A2</div>
+                  <span style="font-size:12px;font-weight:600">agent_mike</span>
+                  <span class="hint">→ Крипта инсайды</span>
+                </div>
+                <span class="pill pill-money">sent</span>
+              </div>
+              <div style="font-size:13px;line-height:1.4">Норм инфа, спасибо. Я сам недавно начал с микро-задач, $20-50 в день стабильно выходит</div>
+              <div class="hint mt-2" style="font-size:11px">14 мин назад</div>
+            </div>
+
+            <!-- Failed -->
+            <div class="card" style="border-left:3px solid var(--danger)">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <div class="avatar" style="width:26px;height:26px;font-size:11px;background:linear-gradient(135deg,#ef4444,#7c3aed)">A3</div>
+                  <span style="font-size:12px;font-weight:600">agent_olga</span>
+                  <span class="hint">→ Спам каналы</span>
+                </div>
+                <span class="pill pill-danger">slowmode</span>
+              </div>
+              <div style="font-size:13px;line-height:1.4;opacity:0.7">не отправлено — лимит группы 1 сообщение / час</div>
+              <div class="hint mt-2" style="font-size:11px">22 мин назад</div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><div class="ico">📊</div>Главная</div>
+          <div class="tab"><div class="ico">👥</div>Группы</div>
+          <div class="tab active"><div class="ico">💬</div>Чаты</div>
+          <div class="tab"><div class="ico">👤</div>Лиды</div>
+          <div class="tab"><div class="ico">🚀</div>Посты</div>
+          <div class="tab"><div class="ico">🤖</div>Агенты</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label"><b>3 · Чаты</b> — лента отправок и реакций в реальном времени</div>
+    </div>
+
+    <!-- ====================== TAB 4: ЛИДЫ (юзеры) ====================== -->
+    <div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="tg-header">
+          <span class="close">‹</span>
+          <span class="title">Лиды · 612</span>
+          <span class="menu">⌕</span>
+        </div>
+        <div class="content">
+          <!-- Funnel mini -->
+          <div class="card mb-3">
+            <div style="font-weight:600;font-size:13px;margin-bottom:10px">🎯 Воронка</div>
+            <div class="space-y-2">
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span>обнаружены</span><span class="hint">612</span></div>
+                <div class="bar"><span style="width:100%;background:var(--brand-grad)"></span></div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span>в работе</span><span class="hint">284</span></div>
+                <div class="bar"><span style="width:46%;background:var(--money-grad)"></span></div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span>конверт.</span><span class="hint" style="color:#34d399">42 · 6.8%</span></div>
+                <div class="bar"><span style="width:7%;background:var(--money)"></span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="seg mb-3">
+            <div class="on">Новые</div>
+            <div>В работе</div>
+            <div>✓ Конв.</div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="card">
+              <div class="flex items-center gap-3">
+                <div class="avatar" style="background:var(--gold-grad)">A</div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">@alex_crypto</div>
+                  <div class="hint">«Заработок 24/7» · 12 мин</div>
+                </div>
+                <span class="pill pill-gold">new</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="flex items-center gap-3">
+                <div class="avatar" style="background:var(--money-grad)">М</div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">@marina_ua</div>
+                  <div class="hint">«Подработка Киев» · 1ч</div>
+                </div>
+                <span class="pill pill-money">replied</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="flex items-center gap-3">
+                <div class="avatar" style="background:var(--brand-grad)">D</div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">@dmitry_btc</div>
+                  <div class="hint">«Крипта инсайды» · 3ч</div>
+                </div>
+                <span class="pill pill-brand">contacted</span>
+              </div>
+            </div>
+            <div class="card" style="background:linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.08));border-color:rgba(16,185,129,0.3)">
+              <div class="flex items-center gap-3">
+                <div class="avatar" style="background:var(--money-grad)">К</div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">@kate_finance</div>
+                  <div style="font-size:11px;color:#34d399">💰 конверсия · $42</div>
+                </div>
+                <span class="pill pill-money">paid ✓</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="flex items-center gap-3">
+                <div class="avatar" style="background:linear-gradient(135deg,#06b6d4,#7c3aed)">S</div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">@serge_jobs</div>
+                  <div class="hint">«Работа удалёнка» · 5ч</div>
+                </div>
+                <span class="pill pill-cyan">joined</span>
+              </div>
+            </div>
+          </div>
+          <div class="hint text-center mt-4" style="font-size:11px">↔ Свайп карточки для смены статуса</div>
+        </div>
+        <div class="mainbtn mainbtn-money">＋ Найти ещё лидов</div>
+        <div class="tabbar">
+          <div class="tab"><div class="ico">📊</div>Главная</div>
+          <div class="tab"><div class="ico">👥</div>Группы</div>
+          <div class="tab"><div class="ico">💬</div>Чаты</div>
+          <div class="tab active"><div class="ico">👤</div>Лиды</div>
+          <div class="tab"><div class="ico">🚀</div>Посты</div>
+          <div class="tab"><div class="ico">🤖</div>Агенты</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label"><b>4 · Лиды</b> — воронка + свайп-карточки юзеров</div>
+    </div>
+
+    <!-- ====================== TAB 5: ПОСТЫ (проактивные) ====================== -->
+    <div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="tg-header">
+          <span class="close">‹</span>
+          <span class="title">Проактивные посты</span>
+          <span class="menu">＋</span>
+        </div>
+        <div class="content">
+          <!-- Schedule -->
+          <div class="card-brand mb-3" style="background:var(--money-grad);box-shadow:0 8px 24px -8px rgba(16,185,129,0.5)">
+            <div class="flex items-center justify-between relative z-10">
+              <div>
+                <div style="font-size:11px;opacity:0.85;text-transform:uppercase;letter-spacing:1px">Следующий пост</div>
+                <div style="font-size:22px;font-weight:800;margin-top:2px">через 18 минут</div>
+                <div style="font-size:12px;opacity:0.9;margin-top:4px">agent_anna → 3 группы</div>
+              </div>
+              <div style="font-size:36px">🚀</div>
+            </div>
+          </div>
+
+          <div class="seg mb-3">
+            <div class="on">Запланир.</div>
+            <div>Отправлено</div>
+            <div>Шаблоны</div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="card" style="border-left:3px solid var(--gold)">
+              <div class="flex items-center justify-between mb-2">
+                <span class="pill pill-gold">⏱ через 18м</span>
+                <span class="hint" style="font-size:11px">3 группы</span>
+              </div>
+              <div style="font-size:13px;line-height:1.4">Народ, кто-то пробовал зарабатывать на микро-задачах? Знакомая показала площадку, за неделю $300 подняла…</div>
+              <div class="hint mt-2" style="font-size:11px">agent_anna · history-style</div>
+            </div>
+            <div class="card" style="border-left:3px solid var(--brand-1)">
+              <div class="flex items-center justify-between mb-2">
+                <span class="pill pill-brand">⏱ через 2ч 04м</span>
+                <span class="hint" style="font-size:11px">5 групп</span>
+              </div>
+              <div style="font-size:13px;line-height:1.4">Кто в теме крипты — где сейчас норм давать таски на дроп? Хочу разнообразить активность</div>
+              <div class="hint mt-2" style="font-size:11px">agent_mike · question-style</div>
+            </div>
+            <div class="card" style="opacity:0.7">
+              <div class="flex items-center justify-between mb-2">
+                <span class="pill pill-money">✓ отправлено</span>
+                <span class="hint" style="font-size:11px">вчера · 14 ответов</span>
+              </div>
+              <div style="font-size:13px;line-height:1.4">Поделюсь опытом — три недели как пробую подработку онлайн, доход стабилен $40-80 в день…</div>
+              <div class="hint mt-2" style="font-size:11px">agent_olga · 4 группы · CTR 18%</div>
+            </div>
+            <div class="card" style="opacity:0.55">
+              <div class="flex items-center justify-between mb-2">
+                <span class="pill pill-money">✓ отправлено</span>
+                <span class="hint" style="font-size:11px">2 дня · 8 ответов</span>
+              </div>
+              <div style="font-size:13px;line-height:1.4">Вопрос знатокам: что лучше для новичков — фриланс биржи или task-платформы?</div>
+              <div class="hint mt-2" style="font-size:11px">agent_anna · 6 групп · CTR 11%</div>
+            </div>
+          </div>
+        </div>
+        <div class="mainbtn">＋ Создать пост</div>
+        <div class="tabbar">
+          <div class="tab"><div class="ico">📊</div>Главная</div>
+          <div class="tab"><div class="ico">👥</div>Группы</div>
+          <div class="tab"><div class="ico">💬</div>Чаты</div>
+          <div class="tab"><div class="ico">👤</div>Лиды</div>
+          <div class="tab active"><div class="ico">🚀</div>Посты</div>
+          <div class="tab"><div class="ico">🤖</div>Агенты</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label"><b>5 · Посты</b> — расписание проактивных публикаций</div>
+    </div>
+
+    <!-- ====================== TAB 6: АГЕНТЫ ====================== -->
+    <div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="tg-header">
+          <span class="close">‹</span>
+          <span class="title">Агенты · 4</span>
+          <span class="menu">＋</span>
+        </div>
+        <div class="content">
+          <!-- Health summary -->
+          <div class="grid grid-cols-3 gap-2 mb-3">
+            <div class="card" style="text-align:center">
+              <div style="font-size:20px;font-weight:800;color:#34d399">3</div>
+              <div class="hint" style="font-size:10px">online</div>
+            </div>
+            <div class="card" style="text-align:center">
+              <div style="font-size:20px;font-weight:800;color:#fbbf24">1</div>
+              <div class="hint" style="font-size:10px">flood-wait</div>
+            </div>
+            <div class="card" style="text-align:center">
+              <div style="font-size:20px;font-weight:800;color:#f87171">0</div>
+              <div class="hint" style="font-size:10px">banned</div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <!-- Healthy -->
+            <div class="card">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="avatar" style="background:var(--brand-grad);position:relative">
+                  A1
+                  <span style="position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;background:var(--money);border:2px solid var(--ink-2)"></span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">agent_anna · +380…12</div>
+                  <div class="hint">320 групп · 1 240 сообщ.</div>
+                </div>
+                <span class="pill pill-money">online</span>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span class="hint">Risk score</span><span style="color:#34d399">12 / 100</span></div>
+                <div class="bar"><span style="width:12%;background:var(--money)"></span></div>
+              </div>
+            </div>
+
+            <!-- Flood -->
+            <div class="card" style="border:1px solid rgba(245,158,11,0.35)">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="avatar" style="background:var(--gold-grad);position:relative">
+                  A2
+                  <span style="position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;background:var(--gold);border:2px solid var(--ink-2)"></span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">agent_mike · +380…87</div>
+                  <div class="hint">flood-wait ещё 14 мин</div>
+                </div>
+                <span class="pill pill-gold">wait</span>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span class="hint">Risk score</span><span style="color:#fbbf24">58 / 100</span></div>
+                <div class="bar"><span style="width:58%;background:var(--gold)"></span></div>
+              </div>
+            </div>
+
+            <!-- Healthy 2 -->
+            <div class="card">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="avatar" style="background:var(--money-grad);position:relative">
+                  A3
+                  <span style="position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;background:var(--money);border:2px solid var(--ink-2)"></span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div style="font-weight:600;font-size:14px">agent_olga · +380…44</div>
+                  <div class="hint">410 групп · 2 010 сообщ.</div>
+                </div>
+                <span class="pill pill-money">online</span>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span class="hint">Risk score</span><span style="color:#34d399">8 / 100</span></div>
+                <div class="bar"><span style="width:8%;background:var(--money)"></span></div>
+              </div>
+            </div>
+
+            <!-- Add -->
+            <div class="card" style="border:1px dashed rgba(124,58,237,0.4);text-align:center;background:transparent">
+              <div style="font-size:13px;color:#a78bfa;font-weight:600">＋ Добавить аккаунт</div>
+              <div class="hint" style="font-size:11px;margin-top:2px">SMS · QR · tdata</div>
+            </div>
+          </div>
+        </div>
+        <div class="mainbtn">⚡ Балансировка нагрузки</div>
+        <div class="tabbar">
+          <div class="tab"><div class="ico">📊</div>Главная</div>
+          <div class="tab"><div class="ico">👥</div>Группы</div>
+          <div class="tab"><div class="ico">💬</div>Чаты</div>
+          <div class="tab"><div class="ico">👤</div>Лиды</div>
+          <div class="tab"><div class="ico">🚀</div>Посты</div>
+          <div class="tab active"><div class="ico">🤖</div>Агенты</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label"><b>6 · Агенты</b> — здоровье аккаунтов, risk-score, SMS-логин</div>
+    </div>
+
+  </div>
+
+  <!-- =============== БРЕНД-СИСТЕМА =============== -->
+  <div class="mt-16 rounded-2xl p-8" style="background:var(--ink-2);border:1px solid var(--line)">
+    <h2 style="font-size:20px;font-weight:700;margin-bottom:6px">Бренд-система</h2>
+    <p class="text-sm mb-6" style="color:var(--hint)">Тёмная база (Telegram-native) + энергичный градиент violet→cyan для всего интерактивного. Деньги/успех — emerald, новые лиды — amber, проблемы — red.</p>
+
+    <div class="grid grid-cols-6 gap-3 text-xs">
+      <div><div class="h-16 rounded-xl" style="background:var(--brand-grad)"></div><div class="mt-2 font-mono">brand-grad</div><div style="color:var(--hint)">action / лого / active tab</div></div>
+      <div><div class="h-16 rounded-xl" style="background:var(--money-grad)"></div><div class="mt-2 font-mono">money-grad</div><div style="color:var(--hint)">конверсия / лиды</div></div>
+      <div><div class="h-16 rounded-xl" style="background:var(--gold-grad)"></div><div class="mt-2 font-mono">gold-grad</div><div style="color:var(--hint)">warning / new</div></div>
+      <div><div class="h-16 rounded-xl" style="background:#7c3aed"></div><div class="mt-2 font-mono">#7c3aed</div><div style="color:var(--hint)">violet</div></div>
+      <div><div class="h-16 rounded-xl" style="background:#06b6d4"></div><div class="mt-2 font-mono">#06b6d4</div><div style="color:var(--hint)">cyan</div></div>
+      <div><div class="h-16 rounded-xl" style="background:#10b981"></div><div class="mt-2 font-mono">#10b981</div><div style="color:var(--hint)">emerald · money</div></div>
+      <div><div class="h-16 rounded-xl" style="background:#f59e0b"></div><div class="mt-2 font-mono">#f59e0b</div><div style="color:var(--hint)">amber · new</div></div>
+      <div><div class="h-16 rounded-xl" style="background:#ef4444"></div><div class="mt-2 font-mono">#ef4444</div><div style="color:var(--hint)">red · banned</div></div>
+      <div><div class="h-16 rounded-xl" style="background:#0f1422;border:1px solid var(--line)"></div><div class="mt-2 font-mono">#0f1422</div><div style="color:var(--hint)">ink · screen bg</div></div>
+      <div><div class="h-16 rounded-xl" style="background:#1a2236;border:1px solid var(--line)"></div><div class="mt-2 font-mono">#1a2236</div><div style="color:var(--hint)">ink-2 · cards</div></div>
+      <div><div class="h-16 rounded-xl" style="background:#232d45;border:1px solid var(--line)"></div><div class="mt-2 font-mono">#232d45</div><div style="color:var(--hint)">ink-3 · borders</div></div>
+      <div><div class="h-16 rounded-xl" style="background:#ffffff"></div><div class="mt-2 font-mono">#ffffff</div><div style="color:var(--hint)">text</div></div>
+    </div>
+
+    <div class="mt-8 grid grid-cols-3 gap-4 text-xs" style="color:var(--hint)">
+      <div>
+        <div style="color:#fff;font-weight:600;margin-bottom:4px">Логотип</div>
+        Квадратный mark с буквой «M» в brand-градиенте, скруглением 8px и мягкой подсветкой. Работает иконкой Mini App в @BotFather.
+      </div>
+      <div>
+        <div style="color:#fff;font-weight:600;margin-bottom:4px">Типографика</div>
+        SF Pro / Inter. Заголовки 800 weight с лёгким negative letter-spacing. Цифры всегда крупные и жирные — это про деньги.
+      </div>
+      <div>
+        <div style="color:#fff;font-weight:600;margin-bottom:4px">Интеракции</div>
+        Тёмный фон без излишних теней, акцент через градиент и свечение. MainButton Telegram перекрашивается в brand-color через WebApp API.
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

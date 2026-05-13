@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Сообщения{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">💬 История сообщений</h2>
+    <p class="text-gray-600">Все взаимодействия агента: что писали и что отвечали</p>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-lg p-4 shadow-md mb-6">
+    <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
+            <label class="text-sm font-semibold text-gray-700">Группа:</label>
+            <select id="group-filter" onchange="loadMessages()" class="px-3 py-2 border rounded-lg text-sm">
+                <option value="">Все группы</option>
+            </select>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <label class="text-sm font-semibold text-gray-700">Лимит:</label>
+            <select id="limit-filter" onchange="loadMessages()" class="px-3 py-2 border rounded-lg text-sm">
+                <option value="50">50</option>
+                <option value="100" selected>100</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+            </select>
+        </div>
+
+        <div class="ml-auto">
+            <input type="text" id="search-input" placeholder="🔍 Поиск в сообщениях..."
+                   class="px-4 py-2 border rounded-lg text-sm w-64"
+                   oninput="searchMessages()">
+        </div>
+
+        <button onclick="loadMessages()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm transition">
+            🔄 Обновить
+        </button>
+    </div>
+</div>
+
+<!-- Stats Bar -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-lg p-4 shadow text-center">
+        <p class="text-gray-500 text-sm">Всего показано</p>
+        <p class="text-2xl font-bold text-blue-600" id="stat-total">0</p>
+    </div>
+    <div class="bg-white rounded-lg p-4 shadow text-center">
+        <p class="text-gray-500 text-sm">Уникальных групп</p>
+        <p class="text-2xl font-bold text-purple-600" id="stat-groups">0</p>
+    </div>
+    <div class="bg-white rounded-lg p-4 shadow text-center">
+        <p class="text-gray-500 text-sm">Уникальных юзеров</p>
+        <p class="text-2xl font-bold text-orange-600" id="stat-users">0</p>
+    </div>
+    <div class="bg-white rounded-lg p-4 shadow text-center">
+        <p class="text-gray-500 text-sm">За сегодня</p>
+        <p class="text-2xl font-bold text-green-600" id="stat-today">0</p>
+    </div>
+</div>
+
+<!-- Messages List -->
+<div id="messages-container" class="space-y-4">
+    <div class="bg-white rounded-lg p-12 shadow-md text-center text-gray-400">
+        ⏳ Загрузка сообщений...
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allMessages = [];
+let allGroups = [];
+let searchQuery = '';
+
+// Get group_id from URL params
+function getUrlGroupId() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('group_id');
+}
+
+async function loadGroupsList() {
+    try {
+        const res = await fetch('/api/groups');
+        allGroups = await res.json();
+
+        const select = document.getElementById('group-filter');
+        const urlGroupId = getUrlGroupId();
+
+        select.innerHTML = '<option value="">Все группы</option>' +
+            allGroups
+                .sort((a, b) => (b.message_count || 0) - (a.message_count || 0))
+                .map(g => `<option value="${g.id}" ${urlGroupId == g.id ? 'selected' : ''}>
+                    ${escapeHtml(g.title)} ${g.message_count > 0 ? `(${g.message_count})` : ''}
+                </option>`).join('');
+
+        // If URL has group_id, load that group's messages
+        if (urlGroupId) {
+            loadMessages();
+        }
+    } catch (err) {
+        console.error('Error loading groups:', err);
+    }
+}
+
+async function loadMessages() {
+    try {
+        const groupId = document.getElementById('group-filter').value;
+        const limit = document.getElementById('limit-filter').value;
+
+        const url = groupId
+            ? `/api/messages?group_id=${groupId}&limit=${limit}`
+            : `/api/messages?limit=${limit}`;
+
+        const res = await fetch(url);
+        allMessages = await res.json();
+        renderMessages();
+    } catch (err) {
+        console.error('Error loading messages:', err);
+    }
+}
+
+function renderMessages() {
+    let messages = allMessages;
+
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        messages = messages.filter(m =>
+            (m.message_text || '').toLowerCase().includes(q) ||
+            (m.response_text || '').toLowerCase().includes(q) ||
+            (m.group_title || '').toLowerCase().includes(q)
+        );
+    }
+
+    // Update stats
+    document.getElementById('stat-total').textContent = messages.length;
+    document.getElementById('stat-groups').textContent =
+        new Set(messages.map(m => m.group_id)).size;
+    document.getElementById('stat-users').textContent =
+        new Set(messages.filter(m => m.user_id).map(m => m.user_id)).size;
+
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('stat-today').textContent =
+        messages.filter(m => m.created_at && m.created_at.startsWith(today)).length;
+
+    const container = document.getElementById('messages-container');
+
+    if (messages.length === 0) {
+        container.innerHTML = `
+            <div class="bg-white rounded-lg p-12 shadow-md text-center">
+                <span class="text-6xl">📭</span>
+                <p class="text-gray-400 mt-4">Сообщений не найдено</p>
+                <p class="text-gray-300 text-sm mt-2">Агент еще не отправлял сообщения или они не найдены по фильтрам</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = messages.map(m => `
+        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 px-6 py-3 border-b flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <span class="text-xl">📨</span>
+                    <div>
+                        <div class="font-semibold text-gray-800">
+                            ${escapeHtml(m.group_title || 'Неизвестная группа')}
+                        </div>
+                        ${m.group_username
+                            ? `<a href="https://t.me/${m.group_username}" target="_blank" class="text-xs text-blue-600 hover:underline">@${m.group_username}</a>`
+                            : ''}
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-xs text-gray-500">${formatDate(m.created_at)}</div>
+                    ${m.user_id ? `<div class="text-xs text-gray-400">User ID: ${m.user_id}</div>` : ''}
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Original message -->
+                <div class="bg-gray-50 rounded-lg p-4 border-l-4 border-gray-400">
+                    <div class="text-xs uppercase text-gray-500 mb-2 font-semibold">📥 Исходное сообщение</div>
+                    <p class="text-gray-700 whitespace-pre-wrap text-sm">${escapeHtml(m.message_text || '—')}</p>
+                </div>
+
+                <!-- Response -->
+                <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                    <div class="text-xs uppercase text-blue-600 mb-2 font-semibold">📤 Ответ агента</div>
+                    <p class="text-gray-700 whitespace-pre-wrap text-sm">${escapeHtml(m.response_text || '—')}</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-6 py-2 bg-gray-50 border-t flex items-center justify-between text-xs text-gray-500">
+                <div class="flex items-center space-x-4">
+                    <span>🆔 #${m.id}</span>
+                    <span>👤 Agent ${m.agent_id}</span>
+                    <span class="badge-${m.status} px-2 py-0.5 rounded-full text-xs">${m.status}</span>
+                </div>
+                <div>
+                    ${m.interaction_type === 'outbound' ? '↗️ Отправлено' : '↙️ Получено'}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function searchMessages() {
+    searchQuery = document.getElementById('search-input').value;
+    renderMessages();
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const date = parseUTC(dateStr);
+    if (!date || isNaN(date)) return '—';
+
+    const now = new Date();
+    const diffMins = Math.floor((now - date) / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    const fullTime = date.toLocaleString('ru-RU', {
+        day: '2-digit', month: '2-digit', year: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+    });
+
+    let rel;
+    if (diffMins < 1) rel = 'только что';
+    else if (diffMins < 60) rel = `${diffMins} мин назад`;
+    else if (diffHours < 24) rel = `${diffHours} ч назад`;
+    else if (diffDays < 7) rel = `${diffDays} дн назад`;
+    else return fullTime;
+
+    return `${fullTime} (${rel})`;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+// Initial load
+loadGroupsList();
+setInterval(loadMessages, 30000);
+</script>
+{% endblock %}

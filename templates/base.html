@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f1422">
+    <title>{% block title %}Главная{% endblock %} · MoneyMaker AI</title>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --brand-1: #7c3aed;
+            --brand-2: #06b6d4;
+            --money:   #10b981;
+            --gold:    #f59e0b;
+            --danger:  #ef4444;
+            --ink:     #0f1422;
+            --ink-2:   #1a2236;
+            --ink-3:   #232d45;
+            --line:    rgba(255,255,255,0.08);
+            --text:    #ffffff;
+            --hint:    #8a93a8;
+            --brand-grad: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);
+            --money-grad: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+            --gold-grad:  linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+        }
+
+        * { -webkit-tap-highlight-color: transparent; }
+        html, body { background: var(--ink) !important; color: var(--text); }
+        body {
+            font-family: -apple-system, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif;
+            padding-bottom: calc(80px + env(safe-area-inset-bottom));
+            min-height: 100vh;
+        }
+
+        nav.gradient-bg { display: none !important; }
+
+        .brand-header {
+            padding: 14px 16px;
+            display: flex; align-items: center; gap: 12px;
+            position: sticky; top: 0; z-index: 30;
+            backdrop-filter: blur(20px);
+            background: rgba(15,20,34,0.85);
+            border-bottom: 1px solid var(--line);
+        }
+        .brand-logo {
+            width: 32px; height: 32px; border-radius: 9px;
+            background: var(--brand-grad);
+            display:inline-flex; align-items:center; justify-content:center;
+            font-weight: 800; font-size: 15px; color:#fff;
+            box-shadow: 0 4px 12px -2px rgba(124,58,237,0.5);
+        }
+        .brand-title { font-weight: 700; font-size: 16px; }
+        .brand-subtitle { font-size: 11px; color: var(--hint); }
+
+        .tabbar {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+            background: rgba(15,20,34,0.92);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--line);
+            display: grid; grid-template-columns: repeat(6, 1fr);
+            padding: 8px 4px calc(10px + env(safe-area-inset-bottom));
+        }
+        .tab {
+            position: relative;
+            display: flex; flex-direction: column; align-items: center; gap: 3px;
+            font-size: 10px; color: var(--hint); text-decoration: none !important;
+            padding: 4px 0; transition: 0.2s;
+        }
+        .tab .ico { font-size: 20px; line-height: 1; }
+        .tab.active { color: #fff; font-weight: 600; }
+        .tab.active .ico { filter: drop-shadow(0 0 6px rgba(124,58,237,0.7)); }
+        .tab.active::after {
+            content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+            width:30px; height:3px; background: var(--brand-grad); border-radius: 2px 2px 0 0;
+        }
+
+        main { max-width: 100% !important; padding: 14px !important; }
+
+        .bg-gray-50, .bg-gray-100 { background: var(--ink) !important; }
+        .bg-white { background: var(--ink-2) !important; }
+        .bg-white.rounded-lg, .bg-white.rounded-xl, .bg-white.rounded-2xl,
+        .stat-card {
+            border: 1px solid var(--line) !important;
+            border-radius: 14px !important;
+            box-shadow: none !important;
+        }
+        .shadow, .shadow-md, .shadow-lg, .shadow-sm { box-shadow: none !important; }
+
+        .text-gray-800, .text-gray-900, .text-black { color: var(--text) !important; }
+        .text-gray-700, .text-gray-600 { color: #c5cad6 !important; }
+        .text-gray-500, .text-gray-400 { color: var(--hint) !important; }
+
+        .border, .border-gray-200, .border-gray-300,
+        .border-t, .border-b, .border-l, .border-r {
+            border-color: var(--line) !important;
+        }
+        .border-l-4 { border-left-width: 3px !important; }
+        .border-blue-500   { border-color: var(--brand-1) !important; }
+        .border-green-500  { border-color: var(--money) !important; }
+        .border-purple-500 { border-color: var(--brand-1) !important; }
+        .border-orange-500 { border-color: var(--gold) !important; }
+        .border-red-500    { border-color: var(--danger) !important; }
+        .border-yellow-500 { border-color: var(--gold) !important; }
+
+        button, .btn { font-weight: 600; }
+        .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600,
+        .bg-purple-500, .bg-purple-600, .bg-pink-500, .bg-pink-600 {
+            background: var(--brand-grad) !important; color: #fff !important;
+        }
+        .bg-green-500, .bg-green-600, .bg-emerald-500, .bg-emerald-600 {
+            background: var(--money-grad) !important; color: #fff !important;
+        }
+        .bg-orange-500, .bg-orange-600, .bg-yellow-500, .bg-yellow-600 {
+            background: var(--gold-grad) !important; color: #fff !important;
+        }
+        .bg-red-500, .bg-red-600 { background: var(--danger) !important; color:#fff !important; }
+        .hover\:bg-blue-600:hover, .hover\:bg-blue-700:hover,
+        .hover\:bg-purple-600:hover, .hover\:bg-green-600:hover { filter: brightness(1.1); }
+
+        input, select, textarea {
+            background: var(--ink) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--line) !important;
+            border-radius: 10px !important;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--brand-1) !important;
+            outline: none !important;
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.2) !important;
+        }
+        ::placeholder { color: var(--hint); opacity: 1; }
+
+        table { background: transparent !important; }
+        th { background: var(--ink-3) !important; color: var(--hint) !important; font-weight:600 !important; }
+        td { border-color: var(--line) !important; }
+        tr:hover { background: rgba(124,58,237,0.06) !important; }
+
+        .badge-discovered    { background: rgba(245,158,11,0.18) !important; color:#fbbf24 !important; }
+        .badge-joined        { background: rgba(124,58,237,0.18) !important; color:#a78bfa !important; }
+        .badge-active        { background: rgba(16,185,129,0.18) !important; color:#34d399 !important; }
+        .badge-banned        { background: rgba(239,68,68,0.18)  !important; color:#f87171 !important; }
+        .badge-private       { background: rgba(168,85,247,0.18) !important; color:#c084fc !important; }
+        .badge-request_sent  { background: rgba(245,158,11,0.18) !important; color:#fbbf24 !important; }
+        .badge-no_permission { background: rgba(239,68,68,0.18)  !important; color:#f87171 !important; }
+        .badge-invalid       { background: rgba(138,147,168,0.18)!important; color:#cbd5e1 !important; }
+        .badge-sent          { background: rgba(16,185,129,0.18) !important; color:#34d399 !important; }
+        .badge-failed        { background: rgba(239,68,68,0.18)  !important; color:#f87171 !important; }
+        .badge-pending       { background: rgba(245,158,11,0.18) !important; color:#fbbf24 !important; }
+
+        .stat-card { transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); }
+
+        .gradient-bg { background: var(--brand-grad) !important; }
+
+        footer { display: none !important; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 3px; }
+
+        @media (max-width: 640px) {
+            .md\:grid-cols-2, .md\:grid-cols-3, .md\:grid-cols-4,
+            .lg\:grid-cols-2, .lg\:grid-cols-3, .lg\:grid-cols-4 {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+            .text-3xl { font-size: 1.5rem !important; }
+            .text-2xl { font-size: 1.25rem !important; }
+            .p-6, .p-8 { padding: 12px !important; }
+        }
+    </style>
+
+    {% block head %}{% endblock %}
+</head>
+<body class="min-h-screen">
+
+    <header class="brand-header">
+        <div class="brand-logo">M</div>
+        <div class="flex-1 min-w-0">
+            <div class="brand-title">{% block header_title %}MoneyMaker AI{% endblock %}</div>
+            <div class="brand-subtitle" id="tg-user-label">подключение…</div>
+        </div>
+        <div id="tg-status" style="width:8px; height:8px; border-radius:50%; background:var(--money); box-shadow:0 0 8px var(--money)"></div>
+    </header>
+
+    <nav class="gradient-bg text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <span class="text-2xl">🤖</span>
+                    <h1 class="text-xl font-bold">MoneyMaker AI-Agent</h1>
+                </div>
+                <div class="flex space-x-2">
+                    <a href="/">📊 Дашборд</a>
+                    <a href="/groups">👥 Группы</a>
+                    <a href="/messages">💬 Сообщения</a>
+                    <a href="/users">👤 Юзеры</a>
+                    <a href="/proactive">🚀 Проактивные</a>
+                    <a href="/agents">🤖 Агенты</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="text-center py-6 text-gray-500 text-sm">
+        <p>🤖 MoneyMaker AI-Agent Dashboard</p>
+    </footer>
+
+    <nav class="tabbar">
+        <a href="/"          class="tab" data-route="/"><div class="ico">📊</div>Главная</a>
+        <a href="/groups"    class="tab" data-route="/groups"><div class="ico">👥</div>Группы</a>
+        <a href="/messages"  class="tab" data-route="/messages"><div class="ico">💬</div>Чаты</a>
+        <a href="/users"     class="tab" data-route="/users"><div class="ico">👤</div>Лиды</a>
+        <a href="/proactive" class="tab" data-route="/proactive"><div class="ico">🚀</div>Посты</a>
+        <a href="/agents"    class="tab" data-route="/agents"><div class="ico">🤖</div>Агенты</a>
+    </nav>
+
+    <script>
+        const tg = window.Telegram && window.Telegram.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+            try { tg.setHeaderColor('#0f1422'); tg.setBackgroundColor('#0f1422'); } catch(e) {}
+            tg.enableClosingConfirmation && tg.enableClosingConfirmation();
+
+            const u = tg.initDataUnsafe && tg.initDataUnsafe.user;
+            const label = document.getElementById('tg-user-label');
+            if (u) {
+                const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || ('@' + (u.username || u.id));
+                label.textContent = name;
+            } else {
+                label.textContent = tg.initData ? 'Telegram' : 'браузер (dev)';
+            }
+
+            const _fetch = window.fetch;
+            window.fetch = function(input, init) {
+                init = init || {};
+                init.headers = new Headers(init.headers || {});
+                if (tg.initData) init.headers.set('X-Telegram-Init-Data', tg.initData);
+                return _fetch(input, init);
+            };
+        } else {
+            const label = document.getElementById('tg-user-label');
+            if (label) label.textContent = 'браузер (dev)';
+        }
+
+        (function() {
+            const path = window.location.pathname;
+            document.querySelectorAll('.tab').forEach(t => {
+                const r = t.getAttribute('data-route');
+                if (r === path) t.classList.add('active');
+                else if (r !== '/' && path.startsWith(r)) t.classList.add('active');
+            });
+        })();
+
+        window.parseUTC = function(s) {
+            if (!s) return null;
+            if (/[Zz]|[+-]\d{2}:?\d{2}$/.test(s)) return new Date(s);
+            return new Date(s.replace(' ', 'T') + 'Z');
+        };
+
+        window.formatDate = function(s) {
+            if (!s) return '—';
+            const d = parseUTC(s);
+            if (!d || isNaN(d)) return '—';
+            const diffMin = (new Date() - d) / 60000;
+            const fullTime = d.toLocaleString('ru-RU', {
+                day: '2-digit', month: '2-digit', year: '2-digit',
+                hour: '2-digit', minute: '2-digit'
+            });
+            let rel;
+            if (diffMin < 1) rel = 'только что';
+            else if (diffMin < 60) rel = `${Math.floor(diffMin)} мин назад`;
+            else if (diffMin < 1440) rel = `${Math.floor(diffMin/60)} ч назад`;
+            else if (diffMin < 10080) rel = `${Math.floor(diffMin/1440)} дн назад`;
+            else return fullTime;
+            return `${fullTime} (${rel})`;
+        };
+
+        window.escapeHtml = function(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        };
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,886 @@
+{% extends "base.html" %}
+
+{% block title %}Агенты{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex items-start justify-between">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-800 mb-2">🤖 Telegram аккаунты</h2>
+        <p class="text-gray-600">Все аккаунты агентов и их статистика</p>
+    </div>
+</div>
+
+<!-- Add account: tdata import + SMS hint -->
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-6">
+    <div class="px-6 py-4 border-b flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <span class="text-2xl">➕</span>
+            <h3 class="font-semibold text-gray-800">Добавить аккаунт</h3>
+        </div>
+        <div class="flex space-x-2">
+            <button id="toggle-import-form"
+                    class="text-sm bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded transition">
+                Добавить аккаунт
+            </button>
+        </div>
+    </div>
+
+    <div id="import-form" class="px-6 py-5 hidden">
+        <!-- Tabs -->
+        <div class="flex space-x-2 mb-4 border-b">
+            <button type="button" data-tab="tdata" class="tab-btn px-4 py-2 text-sm font-semibold border-b-2 border-purple-600 text-purple-700">
+                Импорт из tdata
+            </button>
+            <button type="button" data-tab="sms" class="tab-btn px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                По номеру (SMS-код)
+            </button>
+        </div>
+
+        <!-- ===== tdata tab ===== -->
+        <div id="tab-tdata">
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4 text-sm text-yellow-800">
+            ⚠️ После импорта <b>не запускайте Telegram Desktop с этим tdata</b> — двойной логин = бан.
+            Для нескольких аккаунтов <b>обязателен разный прокси</b> на каждом.
+        </div>
+
+        <form id="form-tdata" enctype="multipart/form-data" class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Способ загрузки tdata</label>
+                <div class="flex space-x-4 text-sm">
+                    <label class="flex items-center"><input type="radio" name="mode" value="zip" checked class="mr-1"> Загрузить zip</label>
+                    <label class="flex items-center"><input type="radio" name="mode" value="path" class="mr-1"> Путь на сервере</label>
+                </div>
+            </div>
+
+            <div id="mode-zip-block">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">tdata.zip</label>
+                <input type="file" name="tdata_zip" accept=".zip"
+                       class="block w-full text-sm border border-gray-300 rounded px-3 py-2">
+                <p class="text-xs text-gray-500 mt-1">Запакуйте папку <code>tdata</code> (с файлом <code>key_datas</code>) в zip и загрузите.</p>
+            </div>
+
+            <div id="mode-path-block" class="hidden">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Путь к папке tdata на сервере</label>
+                <input type="text" name="tdata_path" placeholder="/Volumes/secondary/bot/tdata_anya"
+                       class="block w-full text-sm border border-gray-300 rounded px-3 py-2 font-mono">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Local passcode <span class="text-gray-400 font-normal">(если задан)</span></label>
+                    <input type="password" name="passcode" autocomplete="off"
+                           class="block w-full text-sm border border-gray-300 rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">session_name</label>
+                    <input type="text" name="name" placeholder="agent_3"
+                           class="block w-full text-sm border border-gray-300 rounded px-3 py-2 font-mono">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Прокси <span class="text-gray-400 font-normal">(рекомендуется)</span></label>
+                    <input type="text" name="proxy" placeholder="socks5://user:pass@host:port"
+                           class="block w-full text-sm border border-gray-300 rounded px-3 py-2 font-mono">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Что промоутить</label>
+                    <select name="referral_target" class="block w-full text-sm border border-gray-300 rounded px-3 py-2">
+                        <option value="">— по умолчанию —</option>
+                        <option value="@moneymakerquest_bot">🤖 @moneymakerquest_bot (бот)</option>
+                        <option value="@moneymaker_app">👥 @moneymaker_app (группа)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2">
+                <p class="text-xs text-gray-500">После успешного импорта — перезапустите <code>./start.sh</code>.</p>
+                <button type="submit" id="btn-import"
+                        class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded font-semibold transition">
+                    Импортировать
+                </button>
+            </div>
+
+            <div id="import-status" class="text-sm"></div>
+        </form>
+        </div><!-- /tab-tdata -->
+
+        <!-- ===== sms tab ===== -->
+        <div id="tab-sms" class="hidden">
+            <div class="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4 text-sm text-blue-800">
+                📱 Введите номер — придёт код в Telegram. Если включена 2FA — потребуется облачный пароль.
+            </div>
+
+            <!-- Шаг 1 -->
+            <form id="form-sms-start" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Номер</label>
+                        <input type="text" name="phone" placeholder="+79991234567" required
+                               class="block w-full text-sm border border-gray-300 rounded px-3 py-2 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">session_name</label>
+                        <input type="text" name="name" placeholder="agent_3"
+                               class="block w-full text-sm border border-gray-300 rounded px-3 py-2 font-mono">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Прокси <span class="text-gray-400 font-normal">(рекомендуется)</span></label>
+                        <input type="text" name="proxy" placeholder="socks5://user:pass@host:port"
+                               class="block w-full text-sm border border-gray-300 rounded px-3 py-2 font-mono">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Что промоутить</label>
+                        <select name="referral_target" class="block w-full text-sm border border-gray-300 rounded px-3 py-2">
+                            <option value="">— по умолчанию —</option>
+                            <option value="@moneymakerquest_bot">🤖 @moneymakerquest_bot (бот)</option>
+                            <option value="@moneymaker_app">👥 @moneymaker_app (группа)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end pt-2">
+                    <button type="submit" id="btn-sms-start"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold transition">
+                        Отправить код
+                    </button>
+                </div>
+            </form>
+
+            <!-- Шаг 2 -->
+            <form id="form-sms-confirm" class="space-y-4 hidden mt-4 pt-4 border-t">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Код из Telegram</label>
+                        <input type="text" name="code" placeholder="12345" required autocomplete="one-time-code"
+                               class="block w-full text-sm border border-gray-300 rounded px-3 py-2 font-mono tracking-widest">
+                    </div>
+                    <div id="sms-password-block" class="hidden">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Пароль 2FA</label>
+                        <input type="password" name="password" autocomplete="off"
+                               class="block w-full text-sm border border-gray-300 rounded px-3 py-2">
+                    </div>
+                </div>
+                <div class="flex items-center justify-between pt-2">
+                    <button type="button" id="btn-sms-cancel" class="text-sm text-gray-500 hover:text-gray-700">
+                        ← Отменить
+                    </button>
+                    <button type="submit" id="btn-sms-confirm"
+                            class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded font-semibold transition">
+                        Войти
+                    </button>
+                </div>
+            </form>
+
+            <div id="sms-status" class="text-sm mt-3"></div>
+        </div><!-- /tab-sms -->
+
+        <div class="border-t mt-5 pt-4 text-xs text-gray-500">
+            💡 Из терминала: <code class="bg-gray-100 px-1 rounded">python add_account.py</code> · <code class="bg-gray-100 px-1 rounded">python add_account.py --from-tdata /path/to/tdata</code>
+        </div>
+    </div>
+</div>
+
+<!-- Activity chart за 30 дней -->
+<div class="bg-white rounded-lg p-6 shadow-md mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">📈 Активность за 30 дней</h3>
+    <div style="height: 250px;">
+        <canvas id="activityChart"></canvas>
+    </div>
+</div>
+
+<!-- Scout history -->
+<div class="bg-white rounded-lg p-4 shadow-md mb-4">
+    <div class="flex items-center justify-between mb-3">
+        <div>
+            <h3 class="text-base font-semibold text-gray-800">🔍 История парсинга групп</h3>
+            <p class="text-xs text-gray-500">Каждый день 2 случайных агента дежурят по парсингу. Здесь видно — кто, когда и сколько добавил.</p>
+        </div>
+        <button onclick="loadScoutRuns()" class="text-xs bg-gray-100 hover:bg-gray-200 border px-3 py-1 rounded">🔄 Обновить</button>
+    </div>
+    <div id="scout-runs-table" class="overflow-x-auto">
+        <div class="text-xs text-gray-400 text-center py-4">⏳ Загрузка...</div>
+    </div>
+</div>
+
+<!-- Bulk actions -->
+<div class="bg-white rounded-lg p-4 shadow-md mb-4 flex items-center justify-between">
+    <div>
+        <h3 class="text-base font-semibold text-gray-800">🎯 Распределение групп</h3>
+        <p class="text-xs text-gray-500">Если у агента ≥1 назначенная группа — постит только в свои. Иначе — общий пул.</p>
+    </div>
+    <div class="space-x-2">
+        <button onclick="autoDistribute(true)"
+                class="text-sm bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 text-indigo-700 px-3 py-2 rounded">
+            ➕ Распределить только новые
+        </button>
+        <button onclick="autoDistribute(false)"
+                class="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded">
+            🔄 Перераспределить всё
+        </button>
+    </div>
+</div>
+
+<!-- Agents Cards -->
+<div id="agents-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-white rounded-lg p-12 shadow-md text-center text-gray-400 col-span-2">
+        ⏳ Загрузка...
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let activityChart;
+
+async function loadActivityChart() {
+    try {
+        const res = await fetch('/api/activity-by-day');
+        const data = await res.json();
+
+        const ctx = document.getElementById('activityChart');
+        if (!ctx) return;
+        if (activityChart) activityChart.destroy();
+
+        activityChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: '✅ Отправлено агентами',
+                        data: data.sent || [],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        tension: 0.3,
+                        fill: true,
+                    },
+                    {
+                        label: '❌ Не доставлено (failed)',
+                        data: data.failed || [],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.10)',
+                        tension: 0.3,
+                        fill: true,
+                    },
+                    {
+                        label: '👁 Входящие (listening)',
+                        data: data.inbound || [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.08)',
+                        tension: 0.3,
+                        fill: true,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: true, position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            footer: (items) => {
+                                const total = items.reduce((s, it) => s + (it.parsed.y || 0), 0);
+                                return 'Итого: ' + total;
+                            },
+                        },
+                    },
+                },
+                scales: { y: { beginAtZero: true } },
+            }
+        });
+    } catch (err) {
+        console.error('Error loading activity chart:', err);
+    }
+}
+
+async function loadAgents() {
+    try {
+        const res = await fetch('/api/agents');
+        const agents = await res.json();
+        _agentsCache = agents;
+
+        const container = document.getElementById('agents-container');
+
+        // Фильтруем placeholder'ы
+        const realAgents = agents.filter(a => a.phone_number !== 'placeholder');
+
+        if (realAgents.length === 0) {
+            container.innerHTML = `
+                <div class="bg-white rounded-lg p-12 shadow-md text-center col-span-2">
+                    <span class="text-6xl">🤖</span>
+                    <p class="text-gray-500 mt-4 text-lg">Пока нет добавленных аккаунтов</p>
+                    <p class="text-gray-400 text-sm mt-2">
+                        Запусти <code class="bg-gray-100 px-2 py-1 rounded">python add_account.py</code> для добавления
+                    </p>
+                </div>
+            `;
+            return;
+        }
+
+        const statusColors = {
+            'active': 'green',
+            'inactive': 'gray',
+            'banned': 'red',
+            'rate_limited': 'yellow',
+        };
+
+        const statusEmoji = {
+            'active': '✅',
+            'inactive': '😴',
+            'banned': '⛔',
+            'rate_limited': '⏳',
+        };
+
+        container.innerHTML = realAgents.map(a => {
+            const color = statusColors[a.status] || 'gray';
+            const emoji = statusEmoji[a.status] || '❓';
+
+            const target = a.referral_target || '(не задано)';
+            const isGroup = target.startsWith('@') && (target.includes('app') || target.includes('group') || target.includes('chat'));
+            const targetEmoji = isGroup ? '👥' : '🤖';
+            const targetTypeText = isGroup ? 'группу' : 'бот';
+
+            return `
+                <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="bg-gradient-to-r from-${color}-50 to-${color}-100 px-6 py-4 border-b">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-3xl">${emoji}</span>
+                                <div>
+                                    <div class="font-bold text-lg text-gray-800">${escapeHtml(a.phone_number)}</div>
+                                    <div class="text-xs text-gray-500">${escapeHtml(a.session_name)}</div>
+                                </div>
+                            </div>
+                            <span class="badge-${a.status} px-3 py-1 rounded-full text-xs font-semibold">${a.status}</span>
+                        </div>
+                    </div>
+
+                    <!-- Target badge -->
+                    <div class="px-6 py-3 bg-gradient-to-r from-purple-50 to-pink-50 border-b">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xl">${targetEmoji}</span>
+                                <div>
+                                    <div class="text-xs text-gray-500">Промоутит ${targetTypeText}:</div>
+                                    <div class="font-mono font-semibold text-purple-700">${escapeHtml(target)}</div>
+                                </div>
+                            </div>
+                            <button onclick="changeReferral(${a.id}, '${escapeHtml(target)}')"
+                                    class="text-xs bg-white hover:bg-purple-100 border border-purple-300 text-purple-700 px-3 py-1 rounded transition">
+                                ✏️ Изменить
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-6 grid grid-cols-2 gap-4">
+                        <div class="text-center bg-blue-50 p-3 rounded">
+                            <div class="text-2xl font-bold text-blue-600">${a.total_messages || 0}</div>
+                            <div class="text-xs text-gray-500 mt-1">Всего ответов</div>
+                        </div>
+                        <div class="text-center bg-green-50 p-3 rounded">
+                            <div class="text-2xl font-bold text-green-600">${a.today_messages || 0}</div>
+                            <div class="text-xs text-gray-500 mt-1">Сегодня</div>
+                        </div>
+                        <div class="text-center bg-purple-50 p-3 rounded">
+                            <div class="text-2xl font-bold text-purple-600">${a.proactive_total || 0}</div>
+                            <div class="text-xs text-gray-500 mt-1">Проактивные</div>
+                        </div>
+                        <div class="text-center bg-orange-50 p-3 rounded">
+                            <div class="text-2xl font-bold text-orange-600">${a.proactive_today || 0}</div>
+                            <div class="text-xs text-gray-500 mt-1">Проактивн. сегодня</div>
+                        </div>
+                    </div>
+
+                    <!-- Reactions toggle -->
+                    <div class="px-6 py-2 border-t bg-pink-50 flex items-center justify-between">
+                        <div class="text-xs text-gray-700">
+                            <span class="text-lg">${a.reactions_enabled ? '👍' : '🚫'}</span>
+                            Реакции на активных юзеров:
+                            <b>${a.reactions_enabled ? 'вкл' : 'выкл'}</b>
+                        </div>
+                        <button onclick="toggleReactions(${a.id}, ${a.reactions_enabled ? 'false' : 'true'})"
+                                class="text-xs bg-white hover:bg-pink-100 border border-pink-300 text-pink-700 px-3 py-1 rounded transition">
+                            ${a.reactions_enabled ? 'Выключить' : 'Включить'}
+                        </button>
+                    </div>
+
+                    <!-- Assigned groups -->
+                    <div class="px-6 py-3 border-t bg-indigo-50">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-xs font-semibold text-gray-700">
+                                🎯 Назначенные группы:
+                                <b>${a.assigned_groups_count || 0}</b>
+                                ${(a.assigned_groups_count || 0) === 0 ? '<span class="text-gray-500">(пишет в общий пул)</span>' : ''}
+                            </div>
+                            <button onclick="toggleAssignedGroups(${a.id})"
+                                    id="toggle-groups-${a.id}"
+                                    class="text-xs bg-white hover:bg-indigo-100 border border-indigo-300 text-indigo-700 px-3 py-1 rounded transition">
+                                ${(a.assigned_groups_count || 0) > 0 ? 'Показать' : 'Назначить'}
+                            </button>
+                        </div>
+                        <div id="groups-list-${a.id}" class="hidden mt-2 max-h-60 overflow-y-auto"></div>
+                    </div>
+
+                    <!-- Memberships -->
+                    <div class="px-6 py-3 border-t bg-gray-50">
+                        <div class="text-xs font-semibold text-gray-600 mb-2">📋 Участие в группах:</div>
+                        <div class="grid grid-cols-4 gap-2">
+                            <div class="bg-white rounded px-2 py-2 text-center border border-green-200">
+                                <div class="text-lg font-bold text-green-700">${(a.memberships && a.memberships.joined) || 0}</div>
+                                <div class="text-[10px] text-gray-500 mt-0.5">✅ Вошёл</div>
+                            </div>
+                            <div class="bg-white rounded px-2 py-2 text-center border border-yellow-200">
+                                <div class="text-lg font-bold text-yellow-700">${(a.memberships && a.memberships.requested) || 0}</div>
+                                <div class="text-[10px] text-gray-500 mt-0.5">📨 Заявка</div>
+                            </div>
+                            <div class="bg-white rounded px-2 py-2 text-center border border-red-200">
+                                <div class="text-lg font-bold text-red-700">${(a.memberships && a.memberships.failed) || 0}</div>
+                                <div class="text-[10px] text-gray-500 mt-0.5">❌ Failed</div>
+                            </div>
+                            <div class="bg-white rounded px-2 py-2 text-center border border-gray-300">
+                                <div class="text-lg font-bold text-gray-700">${(a.memberships && a.memberships.banned) || 0}</div>
+                                <div class="text-[10px] text-gray-500 mt-0.5">⛔ Бан</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-6 py-3 bg-gray-50 border-t flex items-center justify-between text-xs text-gray-500">
+                        <span>🆔 ID: ${a.id}</span>
+                        ${a.proxy_ip ? `<span>🌐 Proxy: ${a.proxy_ip}</span>` : '<span>🌐 No proxy</span>'}
+                        <span>📅 ${formatDate(a.created_at)}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (err) {
+        console.error('Error loading agents:', err);
+    }
+}
+
+async function changeReferral(agentId, currentTarget) {
+    const newTarget = prompt(
+        `Что должен промоутить Agent #${agentId}?\n\n` +
+        `Сейчас: ${currentTarget}\n\n` +
+        `Введи новый @username:\n` +
+        `• @moneymakerquest_bot — промо бота\n` +
+        `• @moneymaker_app — промо группы`,
+        currentTarget !== '(не задано)' ? currentTarget : '@moneymakerquest_bot'
+    );
+
+    if (!newTarget) return;
+    const target = newTarget.trim();
+    if (!target.startsWith('@')) {
+        alert('❌ Username должен начинаться с @');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/agents/referral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_id: agentId, target })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            alert(data.message + '\n\n' + data.info);
+            loadAgents();
+        } else {
+            alert(`❌ ${data.error}`);
+        }
+    } catch (err) {
+        alert(`❌ Ошибка: ${err.message}`);
+    }
+}
+
+// Кэш всех агентов для дропдаунов переназначения.
+let _agentsCache = [];
+
+async function toggleReactions(agentId, enable) {
+    const enabled = enable === true || enable === 'true';
+    try {
+        const res = await fetch(`/api/agents/${agentId}/reactions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            loadAgents();
+        } else {
+            alert('❌ Не удалось переключить реакции');
+        }
+    } catch (err) {
+        alert(`❌ ${err.message}`);
+    }
+}
+
+async function toggleAssignedGroups(agentId) {
+    const el = document.getElementById(`groups-list-${agentId}`);
+    if (!el) return;
+    if (!el.classList.contains('hidden')) {
+        el.classList.add('hidden');
+        return;
+    }
+    el.classList.remove('hidden');
+    el.innerHTML = '<div class="text-xs text-gray-400">⏳ Загрузка...</div>';
+    try {
+        const res = await fetch(`/api/agents/${agentId}/groups`);
+        const groups = await res.json();
+        if (!groups.length) {
+            el.innerHTML = `
+                <div class="text-xs text-gray-500 mb-2">Нет назначенных групп. Можно назначить вручную или нажать "Распределить автоматически".</div>
+            `;
+            return;
+        }
+        const otherAgents = _agentsCache.filter(a => a.id !== agentId && a.phone_number !== 'placeholder');
+        el.innerHTML = groups.map(g => {
+            const overLimit = (g.posts_24h || 0) >= 2;
+            return `
+                <div class="bg-white rounded border border-indigo-200 px-2 py-1.5 mb-1 flex items-center justify-between text-xs">
+                    <div class="flex-1 min-w-0 mr-2">
+                        <div class="font-semibold text-gray-800 truncate">${escapeHtml(g.title || '—')}</div>
+                        <div class="text-gray-500">
+                            👥 ${g.members_count || 0} · ${g.status}
+                            · <span class="${overLimit ? 'text-red-600 font-bold' : 'text-gray-500'}">📨 ${g.posts_24h || 0}/2 за 24ч</span>
+                        </div>
+                    </div>
+                    <select onchange="reassignGroup(${g.id}, this.value, ${agentId})"
+                            class="text-xs border rounded px-1 py-0.5 bg-white">
+                        <option value="${agentId}" selected>← остаётся</option>
+                        ${otherAgents.map(a => `<option value="${a.id}">→ Agent #${a.id} ${escapeHtml(a.phone_number)}</option>`).join('')}
+                        <option value="null">→ Общий пул</option>
+                    </select>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        el.innerHTML = `<div class="text-xs text-red-500">❌ ${err.message}</div>`;
+    }
+}
+
+async function reassignGroup(groupId, newAgentId, currentAgentId) {
+    if (String(newAgentId) === String(currentAgentId)) return;
+    const payload = { agent_id: newAgentId === 'null' ? null : parseInt(newAgentId) };
+    try {
+        const res = await fetch(`/api/groups/${groupId}/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.ok) {
+            loadAgents();
+        } else {
+            alert('❌ Не удалось переназначить');
+        }
+    } catch (err) {
+        alert(`❌ ${err.message}`);
+    }
+}
+
+async function autoDistribute(onlyUnassigned) {
+    const msg = onlyUnassigned
+        ? 'Распределить только нераспределённые группы?'
+        : 'Перераспределить ВСЕ группы round-robin (старые назначения будут переписаны)?';
+    if (!confirm(msg)) return;
+    try {
+        const res = await fetch('/api/groups/auto-distribute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ only_unassigned: onlyUnassigned })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            alert(`✅ Распределено ${data.assigned} групп между ${data.agents.length} агентами`);
+            loadAgents();
+        } else {
+            alert(`❌ ${data.error || 'ошибка'}`);
+        }
+    } catch (err) {
+        alert(`❌ ${err.message}`);
+    }
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const date = parseUTC(dateStr);
+    if (!date || isNaN(date)) return '—';
+    return date.toLocaleDateString('ru-RU');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+// === tdata import form ===
+const importToggle = document.getElementById('toggle-import-form');
+const importForm = document.getElementById('import-form');
+importToggle?.addEventListener('click', () => {
+    importForm.classList.toggle('hidden');
+});
+
+document.querySelectorAll('input[name="mode"]').forEach(r => {
+    r.addEventListener('change', e => {
+        const mode = e.target.value;
+        document.getElementById('mode-zip-block').classList.toggle('hidden', mode !== 'zip');
+        document.getElementById('mode-path-block').classList.toggle('hidden', mode !== 'path');
+    });
+});
+
+document.getElementById('form-tdata')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = document.getElementById('btn-import');
+    const status = document.getElementById('import-status');
+
+    const mode = form.elements['mode'].value;
+    const fd = new FormData();
+    if (mode === 'zip') {
+        const f = form.elements['tdata_zip'].files[0];
+        if (!f) { status.innerHTML = '<span class="text-red-600">❌ Выберите zip-файл</span>'; return; }
+        fd.append('tdata_zip', f);
+    } else {
+        const p = form.elements['tdata_path'].value.trim();
+        if (!p) { status.innerHTML = '<span class="text-red-600">❌ Укажите путь</span>'; return; }
+        fd.append('tdata_path', p);
+    }
+    for (const k of ['passcode', 'name', 'proxy', 'referral_target']) {
+        const v = form.elements[k].value.trim();
+        if (v) fd.append(k, v);
+    }
+
+    btn.disabled = true;
+    const oldText = btn.textContent;
+    btn.textContent = 'Импортирую…';
+    status.innerHTML = '<span class="text-gray-500">⏳ Расшифровка tdata и подключение к Telegram (5-30 сек)…</span>';
+
+    try {
+        const res = await fetch('/api/agents/import-tdata', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success) {
+            status.innerHTML = `<div class="bg-green-50 border border-green-200 rounded p-3 text-green-800">
+                ✅ <b>${escapeHtml(data.name || data.phone)}</b> (${escapeHtml(data.phone)}, id=${data.agent_id})
+                импортирован.<br>
+                <span class="text-xs">${escapeHtml(data.message)}</span>
+            </div>`;
+            form.reset();
+            loadAgents();
+        } else {
+            status.innerHTML = `<div class="bg-red-50 border border-red-200 rounded p-3 text-red-800">❌ ${escapeHtml(data.error || 'Неизвестная ошибка')}</div>`;
+        }
+    } catch (err) {
+        status.innerHTML = `<div class="bg-red-50 border border-red-200 rounded p-3 text-red-800">❌ ${escapeHtml(err.message)}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+    }
+});
+
+// === Tabs: tdata / sms ===
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            const active = b.dataset.tab === tab;
+            b.classList.toggle('border-purple-600', active);
+            b.classList.toggle('text-purple-700', active);
+            b.classList.toggle('border-transparent', !active);
+            b.classList.toggle('text-gray-500', !active);
+        });
+        document.getElementById('tab-tdata').classList.toggle('hidden', tab !== 'tdata');
+        document.getElementById('tab-sms').classList.toggle('hidden', tab !== 'sms');
+    });
+});
+
+// === SMS login flow ===
+let smsLoginId = null;
+
+document.getElementById('form-sms-start')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = document.getElementById('btn-sms-start');
+    const status = document.getElementById('sms-status');
+
+    const body = {};
+    for (const k of ['phone', 'name', 'proxy', 'referral_target']) {
+        const v = form.elements[k].value.trim();
+        if (v) body[k] = v;
+    }
+    if (!body.phone) {
+        status.innerHTML = '<span class="text-red-600">❌ Укажите номер</span>';
+        return;
+    }
+
+    btn.disabled = true;
+    const oldText = btn.textContent;
+    btn.textContent = 'Отправляю…';
+    status.innerHTML = '<span class="text-gray-500">⏳ Отправляю код через Telegram…</span>';
+
+    try {
+        const res = await fetch('/api/agents/sms/start', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (data.success) {
+            smsLoginId = data.login_id;
+            status.innerHTML = `<div class="bg-blue-50 border border-blue-200 rounded p-3 text-blue-800">📨 ${escapeHtml(data.message)}. Введите код ниже.</div>`;
+            document.getElementById('form-sms-confirm').classList.remove('hidden');
+            form.querySelectorAll('input, select, button').forEach(el => el.disabled = true);
+        } else {
+            status.innerHTML = `<div class="bg-red-50 border border-red-200 rounded p-3 text-red-800">❌ ${escapeHtml(data.error || '')}</div>`;
+        }
+    } catch (err) {
+        status.innerHTML = `<div class="bg-red-50 border border-red-200 rounded p-3 text-red-800">❌ ${escapeHtml(err.message)}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+    }
+});
+
+document.getElementById('form-sms-confirm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = document.getElementById('btn-sms-confirm');
+    const status = document.getElementById('sms-status');
+
+    const body = {
+        login_id: smsLoginId,
+        code: form.elements['code'].value.trim(),
+        password: form.elements['password'].value || null,
+    };
+
+    btn.disabled = true;
+    const oldText = btn.textContent;
+    btn.textContent = 'Вхожу…';
+    status.innerHTML = '<span class="text-gray-500">⏳ Проверяю код…</span>';
+
+    try {
+        const res = await fetch('/api/agents/sms/confirm', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (data.success) {
+            status.innerHTML = `<div class="bg-green-50 border border-green-200 rounded p-3 text-green-800">
+                ✅ <b>${escapeHtml(data.name || data.phone)}</b> (${escapeHtml(data.phone)}, id=${data.agent_id}) добавлен.<br>
+                <span class="text-xs">${escapeHtml(data.message)}</span>
+            </div>`;
+            smsLoginId = null;
+            document.getElementById('form-sms-start').reset();
+            document.getElementById('form-sms-confirm').reset();
+            document.getElementById('form-sms-confirm').classList.add('hidden');
+            document.getElementById('sms-password-block').classList.add('hidden');
+            document.getElementById('form-sms-start').querySelectorAll('input, select, button').forEach(el => el.disabled = false);
+            loadAgents();
+        } else if (data.need_password) {
+            document.getElementById('sms-password-block').classList.remove('hidden');
+            status.innerHTML = `<div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-yellow-800">🔐 Включена 2FA — введите облачный пароль.</div>`;
+        } else {
+            status.innerHTML = `<div class="bg-red-50 border border-red-200 rounded p-3 text-red-800">❌ ${escapeHtml(data.error || '')}</div>`;
+        }
+    } catch (err) {
+        status.innerHTML = `<div class="bg-red-50 border border-red-200 rounded p-3 text-red-800">❌ ${escapeHtml(err.message)}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+    }
+});
+
+document.getElementById('btn-sms-cancel')?.addEventListener('click', async () => {
+    if (smsLoginId) {
+        try {
+            await fetch('/api/agents/sms/cancel', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ login_id: smsLoginId }),
+            });
+        } catch (_) {}
+    }
+    smsLoginId = null;
+    document.getElementById('form-sms-confirm').reset();
+    document.getElementById('form-sms-confirm').classList.add('hidden');
+    document.getElementById('sms-password-block').classList.add('hidden');
+    document.getElementById('form-sms-start').querySelectorAll('input, select, button').forEach(el => el.disabled = false);
+    document.getElementById('sms-status').innerHTML = '';
+});
+
+async function loadScoutRuns() {
+    const el = document.getElementById('scout-runs-table');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/scout-runs?limit=30');
+        const runs = await res.json();
+        if (!runs.length) {
+            el.innerHTML = '<div class="text-xs text-gray-400 text-center py-4">Пока не было прогонов парсинга. Они запускаются автоматически 2 раза в день у дежурных агентов.</div>';
+            return;
+        }
+        const statusBadge = {
+            'done':      'bg-green-100 text-green-700',
+            'running':   'bg-blue-100 text-blue-700',
+            'floodwait': 'bg-yellow-100 text-yellow-700',
+            'error':     'bg-red-100 text-red-700',
+        };
+        const statusEmoji = {
+            'done': '✅', 'running': '⏳', 'floodwait': '⚠️', 'error': '❌',
+        };
+        el.innerHTML = `
+            <table class="min-w-full text-xs">
+                <thead class="bg-gray-50 text-gray-600">
+                    <tr>
+                        <th class="px-3 py-2 text-left">Когда</th>
+                        <th class="px-3 py-2 text-left">Агент</th>
+                        <th class="px-3 py-2 text-left">Ключевые слова</th>
+                        <th class="px-3 py-2 text-right">Найдено</th>
+                        <th class="px-3 py-2 text-right">Добавлено</th>
+                        <th class="px-3 py-2 text-left">Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${runs.map(r => {
+                        const started = r.started_at ? formatDateTime(r.started_at) : '—';
+                        const dur = (r.started_at && r.finished_at)
+                            ? Math.max(0, Math.round((parseUTC(r.finished_at) - parseUTC(r.started_at))/1000)) + 'с'
+                            : (r.status === 'running' ? 'идёт…' : '—');
+                        const kws = (r.keywords || '').split(', ').filter(Boolean);
+                        const kwsHtml = kws.slice(0, 4).map(k => `<span class="bg-gray-100 px-1.5 py-0.5 rounded">${escapeHtml(k)}</span>`).join(' ')
+                                       + (kws.length > 4 ? ` <span class="text-gray-400">+${kws.length - 4}</span>` : '');
+                        const cls = statusBadge[r.status] || 'bg-gray-100 text-gray-700';
+                        const em = statusEmoji[r.status] || '·';
+                        return `
+                            <tr class="border-t hover:bg-gray-50">
+                                <td class="px-3 py-2 text-gray-700">${started}<div class="text-[10px] text-gray-400">${dur}</div></td>
+                                <td class="px-3 py-2">
+                                    <div class="font-semibold">Agent #${r.agent_id}</div>
+                                    <div class="text-[10px] text-gray-500">${escapeHtml(r.phone_number || '')}</div>
+                                </td>
+                                <td class="px-3 py-2">${kwsHtml || '<span class="text-gray-400">—</span>'}</td>
+                                <td class="px-3 py-2 text-right font-mono">${r.groups_found || 0}</td>
+                                <td class="px-3 py-2 text-right font-mono font-bold text-green-700">${r.groups_added || 0}</td>
+                                <td class="px-3 py-2"><span class="${cls} px-2 py-0.5 rounded">${em} ${r.status}</span></td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (err) {
+        el.innerHTML = `<div class="text-xs text-red-500">❌ ${err.message}</div>`;
+    }
+}
+
+function formatDateTime(s) {
+    const d = parseUTC(s);
+    if (!d || isNaN(d)) return s || '—';
+    return d.toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+loadAgents();
+loadActivityChart();
+loadScoutRuns();
+setInterval(() => { loadAgents(); loadActivityChart(); loadScoutRuns(); }, 30000);
+</script>
+{% endblock %}

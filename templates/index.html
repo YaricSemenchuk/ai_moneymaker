@@ -1,0 +1,1322 @@
+{% extends "base.html" %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">📊 Аналитика агента</h2>
+    <p class="text-gray-600">Статистика и графики работы AI-агента в реальном времени</p>
+</div>
+
+<!-- Stat Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="stat-card bg-white rounded-lg p-6 shadow-md border-l-4 border-blue-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm uppercase">Всего групп</p>
+                <p class="text-3xl font-bold text-gray-800" id="stat-groups">-</p>
+            </div>
+            <span class="text-4xl">👥</span>
+        </div>
+    </div>
+
+    <div class="stat-card bg-white rounded-lg p-6 shadow-md border-l-4 border-green-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm uppercase">Всего сообщений</p>
+                <p class="text-3xl font-bold text-gray-800" id="stat-interactions">-</p>
+            </div>
+            <span class="text-4xl">💬</span>
+        </div>
+    </div>
+
+    <div class="stat-card bg-white rounded-lg p-6 shadow-md border-l-4 border-purple-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm uppercase">Сегодня</p>
+                <p class="text-3xl font-bold text-gray-800" id="stat-today">-</p>
+            </div>
+            <span class="text-4xl">📅</span>
+        </div>
+    </div>
+
+    <div class="stat-card bg-white rounded-lg p-6 shadow-md border-l-4 border-orange-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm uppercase">Уникальных юзеров</p>
+                <p class="text-3xl font-bold text-gray-800" id="stat-users">-</p>
+            </div>
+            <span class="text-4xl">🎯</span>
+        </div>
+    </div>
+</div>
+
+<!-- Status Distribution -->
+<!-- Row: Статусы групп + Авто-парсинг (рядом) -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-white rounded-lg p-6 shadow-md">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Статусы групп</h3>
+        <div id="status-distribution" class="space-y-3">
+            <p class="text-gray-400 text-sm">Загрузка...</p>
+        </div>
+    </div>
+
+    <!-- Auto-scout schedule widget -->
+    <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 shadow-md border-l-4 border-purple-500" id="scout-widget">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-semibold text-gray-800">🤖 Авто-парсинг групп</h3>
+            <button onclick="openCategoryModal('__new__')"
+                    class="text-xs bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded">
+                + категория
+            </button>
+        </div>
+        <div id="scout-info" class="space-y-2 text-sm">
+            <p class="text-gray-400">Загрузка...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Row: Анализ банов на всю ширину -->
+<div class="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg p-6 shadow-md border-l-4 border-red-500 mb-6" id="bans-widget">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-semibold text-gray-800">⛔ Анализ банов и проблемных групп</h3>
+        <a href="/groups?status=banned" class="text-xs text-red-600 hover:underline">Подробнее →</a>
+    </div>
+    <div id="bans-info" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <p class="text-gray-400">Загрузка...</p>
+    </div>
+</div>
+
+<!-- Row: Выученные правила (защита от банов) -->
+<div class="bg-gradient-to-br from-green-50 to-blue-50 rounded-lg p-6 shadow-md border-l-4 border-green-500 mb-6" id="lessons-widget">
+    <div class="flex items-center justify-between mb-3">
+        <div>
+            <h3 class="text-lg font-semibold text-gray-800">🛡️ Выученные правила (защита от банов)</h3>
+            <p class="text-xs text-gray-600 mt-1">Агент автоматически блокирует сообщения с этими фразами и не повторяет ошибок.</p>
+        </div>
+        <button onclick="showAddLessonModal()"
+                class="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded">
+            + Добавить правило
+        </button>
+    </div>
+    <div id="lessons-list" class="text-sm">
+        <p class="text-gray-400">Загрузка...</p>
+    </div>
+</div>
+
+<!-- Add lesson modal -->
+<div id="lesson-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-lg mx-4 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-800">➕ Новое правило (фраза для блокировки)</h3>
+            <button onclick="hideAddLessonModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">✕</button>
+        </div>
+        <div class="space-y-3">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Запрещённая фраза:</label>
+                <input type="text" id="lesson-phrase" placeholder='например "scam" или "easy money"'
+                       class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
+                <p class="text-xs text-gray-400 mt-1">Если эта фраза встретится в ответе — он не отправится</p>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Тема (необязательно):</label>
+                <select id="lesson-topic" class="w-full border border-gray-300 rounded px-3 py-2">
+                    <option value="general">general</option>
+                    <option value="crypto">crypto</option>
+                    <option value="work">work / freelance</option>
+                    <option value="russian">russian</option>
+                    <option value="english">english</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Рекомендация:</label>
+                <textarea id="lesson-recommendation" rows="2"
+                          placeholder="Почему эта фраза опасна и как заменить"
+                          class="w-full border border-gray-300 rounded px-3 py-2"></textarea>
+            </div>
+        </div>
+        <div class="mt-4 flex justify-end space-x-2">
+            <button onclick="hideAddLessonModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Отмена</button>
+            <button onclick="saveLesson()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Ban detail modal (вне сетки - fixed позиция) -->
+<div id="ban-detail-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-3xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-800" id="ban-detail-title">⛔ Детали бана</h3>
+            <button onclick="hideBanDetail()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">✕</button>
+        </div>
+        <div id="ban-detail-body">⏳ Загрузка...</div>
+    </div>
+</div>
+
+<!-- Category editor modal -->
+<div id="category-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex-1">
+                <h3 class="text-xl font-bold text-gray-800" id="cat-modal-title">Категория</h3>
+                <input id="cat-rename-input"
+                       class="hidden mt-2 w-full border border-gray-300 rounded px-3 py-1 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500">
+            </div>
+            <div class="flex space-x-2 ml-4">
+                <button id="cat-rename-btn" onclick="toggleRenameCategory()"
+                        class="text-sm text-purple-600 hover:bg-purple-50 px-2 py-1 rounded" title="Переименовать">
+                    ✏️
+                </button>
+                <button id="cat-delete-btn" onclick="deleteCategory()"
+                        class="text-sm text-red-600 hover:bg-red-50 px-2 py-1 rounded" title="Удалить категорию">
+                    🗑️
+                </button>
+                <button onclick="hideCategoryModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">✕</button>
+            </div>
+        </div>
+
+        <!-- Add new keyword form -->
+        <div class="bg-purple-50 p-3 rounded mb-4">
+            <div class="flex space-x-2">
+                <input type="text"
+                       id="new-keyword-input"
+                       placeholder="новое ключевое слово"
+                       class="flex-1 border border-purple-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                       onkeyup="if(event.key === 'Enter') addKeywordSubmit()">
+                <button onclick="addKeywordSubmit()"
+                        class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">
+                    + Добавить
+                </button>
+            </div>
+        </div>
+
+        <div id="cat-modal-status" class="hidden mb-3 p-2 rounded text-xs"></div>
+
+        <!-- Keywords list -->
+        <div id="cat-keywords-list" class="space-y-1 max-h-96 overflow-y-auto scrollbar-thin">
+            <p class="text-gray-400 text-sm">Загрузка...</p>
+        </div>
+
+        <div class="mt-4 pt-3 border-t flex justify-end">
+            <button onclick="hideCategoryModal()"
+                    class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">
+                Закрыть
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Agents risk / recovery timeline -->
+<div class="bg-white rounded-lg p-6 shadow-md mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">🛡️ Состояние агентов (риск / восстановление)</h3>
+    <div id="agents-risk" class="space-y-2">
+        <p class="text-gray-400 text-sm">Загрузка...</p>
+    </div>
+    <p class="text-xs text-gray-400 mt-3">
+        Агент в зоне риска при ≥3 банах/failures за 24ч и отвечает только на сообщения с interest ≥ 0.5.
+        Время восстановления = когда счётчик упадёт ниже 3 (старые баны "истекают" через 24ч).
+    </p>
+</div>
+
+<!-- Hour chart на всю ширину -->
+<div class="bg-white rounded-lg p-6 shadow-md mb-6">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">🕐 Активность по часам</h3>
+        <div class="flex items-center gap-2 text-sm">
+            <input id="hourFrom" type="date" class="border rounded px-2 py-1 text-xs">
+            <span class="text-gray-400">—</span>
+            <input id="hourTo" type="date" class="border rounded px-2 py-1 text-xs">
+            <button onclick="loadHourChart()" class="bg-purple-500 hover:bg-purple-600 text-white text-xs px-3 py-1 rounded">OK</button>
+            <button onclick="setHourRangePreset('today')" class="text-xs text-purple-600 hover:underline">сегодня</button>
+            <button onclick="setHourRangePreset('7d')" class="text-xs text-purple-600 hover:underline">7д</button>
+            <button onclick="setHourRangePreset('30d')" class="text-xs text-purple-600 hover:underline">30д</button>
+        </div>
+    </div>
+    <div style="height: 280px;">
+        <canvas id="hourChart"></canvas>
+    </div>
+</div>
+
+<!-- Top groups на всю ширину -->
+<div class="bg-white rounded-lg p-6 shadow-md mb-8">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">🏆 Топ-10 групп по активности</h3>
+    <div id="top-groups" class="space-y-2">
+        <p class="text-gray-400 text-sm">Загрузка...</p>
+    </div>
+</div>
+
+<!-- Refresh button -->
+<div class="text-center">
+    <button onclick="loadAllData()" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg shadow transition">
+        🔄 Обновить данные
+    </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let hourChart;
+
+async function loadStats() {
+    try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+
+        document.getElementById('stat-groups').textContent = data.total_groups;
+        document.getElementById('stat-interactions').textContent = data.total_interactions;
+        document.getElementById('stat-today').textContent = data.today_interactions;
+        document.getElementById('stat-users').textContent = data.unique_users;
+
+        // Status distribution
+        const statusContainer = document.getElementById('status-distribution');
+        statusContainer.innerHTML = '';
+
+        const statuses = data.groups_by_status;
+        const total = Object.values(statuses).reduce((a, b) => a + b, 0);
+
+        if (total === 0) {
+            statusContainer.innerHTML = '<p class="text-gray-400 text-sm">Нет данных</p>';
+            return;
+        }
+
+        const statusEmoji = {
+            'discovered': '🔍',
+            'joined': '🚪',
+            'active': '✅',
+            'banned': '⛔',
+            'inactive': '😴'
+        };
+
+        for (const [status, count] of Object.entries(statuses)) {
+            const percent = ((count / total) * 100).toFixed(1);
+            const emoji = statusEmoji[status] || '📁';
+            statusContainer.innerHTML += `
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-700">${emoji} ${status}</span>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-32 bg-gray-200 rounded-full h-2">
+                            <div class="bg-blue-500 h-2 rounded-full" style="width: ${percent}%"></div>
+                        </div>
+                        <span class="text-sm font-semibold w-12 text-right">${count}</span>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (err) {
+        console.error('Error loading stats:', err);
+    }
+}
+
+function kyivToday() {
+    // Локальная дата браузера в YYYY-MM-DD. Для пользователя в Киеве совпадает с Europe/Kyiv.
+    const d = new Date();
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 10);
+}
+
+function setHourRangePreset(preset) {
+    const today = kyivToday();
+    const fromInput = document.getElementById('hourFrom');
+    const toInput = document.getElementById('hourTo');
+    if (preset === 'today') {
+        fromInput.value = today;
+        toInput.value = today;
+    } else {
+        const days = preset === '7d' ? 6 : 29;
+        const from = new Date();
+        from.setDate(from.getDate() - days);
+        const tzOffset = from.getTimezoneOffset() * 60000;
+        fromInput.value = new Date(from.getTime() - tzOffset).toISOString().slice(0, 10);
+        toInput.value = today;
+    }
+    loadHourChart();
+}
+
+async function loadHourChart() {
+    try {
+        const fromInput = document.getElementById('hourFrom');
+        const toInput = document.getElementById('hourTo');
+        if (fromInput && !fromInput.value) fromInput.value = kyivToday();
+        if (toInput && !toInput.value) toInput.value = kyivToday();
+        const params = new URLSearchParams();
+        if (fromInput && fromInput.value) params.set('from', fromInput.value);
+        if (toInput && toInput.value) params.set('to', toInput.value);
+        const res = await fetch('/api/activity-by-hour?' + params.toString());
+        const data = await res.json();
+
+        const ctx = document.getElementById('hourChart');
+        if (hourChart) hourChart.destroy();
+
+        const datasets = (data.datasets || []).map(ds => ({
+            label: ds.label,
+            data: ds.data,
+            breakdown: ds.breakdown,
+            borderColor: ds.backgroundColor,
+            backgroundColor: ds.backgroundColor + '33',
+            tension: 0.35,
+            fill: false,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            borderWidth: 2
+        }));
+
+        hourChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: data.labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+                    title: { display: true, text: 'Время — ' + (data.timezone || 'Europe/Kyiv') + ' · ' + (data.from === data.to ? data.from : (data.from + ' → ' + data.to)), font: { size: 11 }, color: '#6b7280' },
+                    tooltip: {
+                        callbacks: {
+                            title: (items) => items.length ? `${items[0].dataset.label} · ${items[0].label}:00` : '',
+                            label: (ctx) => {
+                                const b = ctx.dataset.breakdown && ctx.dataset.breakdown[ctx.dataIndex];
+                                const total = ctx.parsed.y;
+                                if (!b) return `Всего: ${total}`;
+                                const lines = [`Всего: ${total}`];
+                                if (b.reply) lines.push(`💬 Ответы: ${b.reply}`);
+                                if (b.proactive) lines.push(`📢 Проактивные: ${b.proactive}`);
+                                if (b.observed) lines.push(`👀 Наблюдения: ${b.observed}`);
+                                return lines;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        });
+    } catch (err) {
+        console.error('Error loading hour chart:', err);
+    }
+}
+
+async function loadTopGroups() {
+    try {
+        const res = await fetch('/api/top-groups');
+        const data = await res.json();
+
+        const container = document.getElementById('top-groups');
+
+        if (data.length === 0) {
+            container.innerHTML = '<p class="text-gray-400 text-sm">Нет данных</p>';
+            return;
+        }
+
+        container.innerHTML = data.map((g, i) => `
+            <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+                <div class="flex-1">
+                    <div class="font-semibold text-sm">${i + 1}. ${escapeHtml(g.title)}</div>
+                    ${g.username ? `<div class="text-xs text-gray-500">@${g.username}</div>` : ''}
+                </div>
+                <div class="text-right">
+                    <div class="font-bold text-blue-600">${g.messages}</div>
+                    <div class="text-xs text-gray-400">${g.members?.toLocaleString() || 0} участн.</div>
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Error loading top groups:', err);
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+async function loadScoutSchedule() {
+    try {
+        const res = await fetch('/api/scout-schedule');
+        const data = await res.json();
+        const container = document.getElementById('scout-info');
+
+        if (!data.enabled) {
+            container.innerHTML = `
+                <p class="text-gray-500">⚠️ Авто-парсинг отключен</p>
+                <p class="text-xs text-gray-400">Включи в config_agent.py: AUTO_SCOUT_ENABLED=True</p>
+            `;
+            return;
+        }
+
+        const nextRun = new Date(data.next_runs[0]);
+        const now = new Date();
+        const hoursUntil = ((nextRun - now) / 3600000).toFixed(1);
+        const tz = data.timezone || 'Киев';
+        const scheduledTimes = (data.scheduled_hours || []).map(h => `${h}:00`).join(', ');
+
+        const categoriesHtml = Object.entries(data.categories)
+            .map(([cat, count]) => `<span onclick="openCategoryModal('${escapeAttr(cat)}')" class="inline-block bg-white hover:bg-purple-100 cursor-pointer px-2 py-0.5 rounded text-xs mr-1 mb-1 transition border border-transparent hover:border-purple-300" title="Кликни для редактирования">${cat}: <b>${count}</b></span>`)
+            .join('');
+
+        container.innerHTML = `
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Расписание (${tz}):</span>
+                    <b class="text-purple-700">${scheduledTimes}</b>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Слов за прогон:</span>
+                    <b class="text-purple-700">${data.keywords_per_run}</b>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Слов в пуле:</span>
+                    <b class="text-purple-700">${data.total_keywords_in_pool}</b>
+                </div>
+                <div class="bg-white rounded p-2 mt-3">
+                    <div class="text-xs text-gray-500 mb-1">⏰ Следующий запуск (${tz}):</div>
+                    <div class="font-mono text-sm font-semibold text-purple-700">
+                        ${nextRun.toLocaleString('uk-UA', {hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short'})}
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">через ${hoursUntil}ч</div>
+                </div>
+                <div class="mt-3">
+                    <div class="text-xs text-gray-500 mb-1">Категории слов:</div>
+                    <div>${categoriesHtml}</div>
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        console.error('Error loading scout schedule:', err);
+    }
+}
+
+function escapeAttr(text) {
+    return (text || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// === Category Editor Modal ===
+
+let currentCategory = null;
+
+async function openCategoryModal(category) {
+    currentCategory = category;
+    const modal = document.getElementById('category-modal');
+    const title = document.getElementById('cat-modal-title');
+    const renameInput = document.getElementById('cat-rename-input');
+    const deleteBtn = document.getElementById('cat-delete-btn');
+    const renameBtn = document.getElementById('cat-rename-btn');
+    const status = document.getElementById('cat-modal-status');
+
+    status.classList.add('hidden');
+    renameInput.classList.add('hidden');
+
+    if (category === '__new__') {
+        // Создание новой категории
+        title.textContent = '➕ Новая категория';
+        renameInput.classList.remove('hidden');
+        renameInput.value = '';
+        renameInput.placeholder = 'Имя новой категории (например: gaming)';
+        deleteBtn.style.display = 'none';
+        renameBtn.style.display = 'none';
+
+        document.getElementById('cat-keywords-list').innerHTML = `
+            <p class="text-gray-400 text-sm italic">
+                Сначала введи имя категории сверху, потом добавляй слова.
+            </p>
+        `;
+
+        modal.classList.remove('hidden');
+        renameInput.focus();
+        return;
+    }
+
+    title.textContent = `🏷️ ${category}`;
+    deleteBtn.style.display = '';
+    renameBtn.style.display = '';
+
+    modal.classList.remove('hidden');
+    document.getElementById('new-keyword-input').focus();
+    await loadCategoryKeywords();
+}
+
+function hideCategoryModal() {
+    document.getElementById('category-modal').classList.add('hidden');
+    currentCategory = null;
+    loadScoutSchedule(); // обновляем счётчики на главной
+}
+
+function showStatus(text, type = 'info') {
+    const status = document.getElementById('cat-modal-status');
+    const colors = {
+        info: 'bg-blue-100 text-blue-700',
+        success: 'bg-green-100 text-green-700',
+        error: 'bg-red-100 text-red-700',
+    };
+    status.className = `mb-3 p-2 rounded text-xs ${colors[type] || colors.info}`;
+    status.textContent = text;
+    status.classList.remove('hidden');
+    setTimeout(() => status.classList.add('hidden'), 3000);
+}
+
+async function loadCategoryKeywords() {
+    if (!currentCategory || currentCategory === '__new__') return;
+
+    try {
+        const res = await fetch(`/api/keywords/category/${encodeURIComponent(currentCategory)}`);
+        const data = await res.json();
+        const list = document.getElementById('cat-keywords-list');
+
+        if (!data.items || data.items.length === 0) {
+            list.innerHTML = '<p class="text-gray-400 text-sm italic">В этой категории пока нет слов</p>';
+            return;
+        }
+
+        list.innerHTML = data.items.map(kw => `
+            <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded border ${kw.enabled ? 'border-gray-200' : 'border-red-200 bg-red-50/30'}">
+                <div class="flex items-center space-x-2 flex-1">
+                    <input type="checkbox"
+                           ${kw.enabled ? 'checked' : ''}
+                           onchange="toggleKeyword(${kw.id}, this.checked)"
+                           title="Включено / отключено"
+                           class="w-4 h-4 cursor-pointer">
+                    <input type="text"
+                           value="${escapeHtml(kw.keyword)}"
+                           data-original="${escapeHtml(kw.keyword)}"
+                           onblur="updateKeywordText(${kw.id}, this)"
+                           onkeyup="if(event.key === 'Enter') this.blur()"
+                           class="flex-1 border-0 bg-transparent px-2 py-1 hover:bg-white focus:bg-white focus:border focus:border-purple-300 rounded text-sm font-mono ${kw.enabled ? '' : 'text-gray-400 line-through'}">
+                </div>
+                <button onclick="deleteKeyword(${kw.id})"
+                        class="text-red-500 hover:bg-red-100 px-2 py-1 rounded text-sm"
+                        title="Удалить">
+                    🗑️
+                </button>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Error loading keywords:', err);
+    }
+}
+
+async function addKeywordSubmit() {
+    const input = document.getElementById('new-keyword-input');
+    const keyword = input.value.trim();
+    if (!keyword) return;
+
+    let category = currentCategory;
+
+    // Если это новая категория - берём имя из renameInput
+    if (currentCategory === '__new__') {
+        const renameInput = document.getElementById('cat-rename-input');
+        const newCatName = renameInput.value.trim();
+        if (!newCatName) {
+            showStatus('❌ Сначала введи имя категории', 'error');
+            renameInput.focus();
+            return;
+        }
+        category = newCatName;
+        currentCategory = newCatName;
+        document.getElementById('cat-modal-title').textContent = `🏷️ ${newCatName}`;
+        renameInput.classList.add('hidden');
+        document.getElementById('cat-delete-btn').style.display = '';
+        document.getElementById('cat-rename-btn').style.display = '';
+    }
+
+    try {
+        const res = await fetch('/api/keywords/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category, keyword })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            input.value = '';
+            showStatus(`✅ Добавлено: ${keyword}`, 'success');
+            await loadCategoryKeywords();
+        } else {
+            showStatus(`❌ ${data.error}`, 'error');
+        }
+    } catch (err) {
+        showStatus(`❌ ${err.message}`, 'error');
+    }
+}
+
+async function toggleKeyword(kid, enabled) {
+    try {
+        await fetch(`/api/keywords/${kid}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled })
+        });
+        showStatus(enabled ? '✅ Включено' : '😴 Отключено', 'success');
+        await loadCategoryKeywords();
+    } catch (err) {
+        showStatus(`❌ ${err.message}`, 'error');
+    }
+}
+
+async function updateKeywordText(kid, inputEl) {
+    const newText = inputEl.value.trim();
+    const original = inputEl.dataset.original;
+
+    if (!newText || newText === original) {
+        inputEl.value = original;
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/keywords/${kid}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keyword: newText })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showStatus(`✏️ Обновлено: ${newText}`, 'success');
+            inputEl.dataset.original = newText;
+        } else {
+            inputEl.value = original;
+            showStatus(`❌ ${data.error || 'не удалось'}`, 'error');
+        }
+    } catch (err) {
+        inputEl.value = original;
+        showStatus(`❌ ${err.message}`, 'error');
+    }
+}
+
+async function deleteKeyword(kid) {
+    if (!confirm('Удалить это слово?')) return;
+
+    try {
+        await fetch(`/api/keywords/${kid}`, { method: 'DELETE' });
+        showStatus('🗑️ Удалено', 'success');
+        await loadCategoryKeywords();
+    } catch (err) {
+        showStatus(`❌ ${err.message}`, 'error');
+    }
+}
+
+function toggleRenameCategory() {
+    const renameInput = document.getElementById('cat-rename-input');
+    if (renameInput.classList.contains('hidden')) {
+        renameInput.classList.remove('hidden');
+        renameInput.value = currentCategory;
+        renameInput.focus();
+        renameInput.onkeyup = async (e) => {
+            if (e.key === 'Enter') {
+                const newName = renameInput.value.trim();
+                if (!newName || newName === currentCategory) {
+                    renameInput.classList.add('hidden');
+                    return;
+                }
+
+                try {
+                    const res = await fetch(`/api/keywords/category/${encodeURIComponent(currentCategory)}/rename`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ new_name: newName })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        currentCategory = newName;
+                        document.getElementById('cat-modal-title').textContent = `🏷️ ${newName}`;
+                        renameInput.classList.add('hidden');
+                        showStatus(`✏️ Переименовано: ${newName}`, 'success');
+                    } else {
+                        showStatus(`❌ ${data.error}`, 'error');
+                    }
+                } catch (err) {
+                    showStatus(`❌ ${err.message}`, 'error');
+                }
+            } else if (e.key === 'Escape') {
+                renameInput.classList.add('hidden');
+            }
+        };
+    } else {
+        renameInput.classList.add('hidden');
+    }
+}
+
+async function deleteCategory() {
+    if (!confirm(`Удалить ВСЮ категорию "${currentCategory}" со всеми словами?\n\nЭто необратимо!`)) return;
+
+    try {
+        const res = await fetch(`/api/keywords/category/${encodeURIComponent(currentCategory)}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+            showStatus(`🗑️ Категория удалена (${data.deleted} слов)`, 'success');
+            setTimeout(hideCategoryModal, 800);
+        }
+    } catch (err) {
+        showStatus(`❌ ${err.message}`, 'error');
+    }
+}
+
+// Закрытие по Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.getElementById('category-modal').classList.contains('hidden')) {
+        hideCategoryModal();
+    }
+});
+
+async function loadBansAnalysis() {
+    try {
+        const res = await fetch('/api/bans');
+        const data = await res.json();
+        const c = document.getElementById('bans-info');
+
+        const totalBans = data.bans.length;
+        const totalProblems = data.total_problematic || 0;
+        const reasons = data.reasons || {};
+        const byStatus = data.by_status || {};
+
+        // Объяснения причин на русском с рекомендациями
+        const reasonInfo = {
+            'USER_BANNED_IN_CHANNEL': {
+                emoji: '⛔',
+                title: 'Забанили',
+                desc: 'Админ группы заблокировал агента',
+                fix: 'Снизить активность, использовать более естественные ответы'
+            },
+            'USER_KICKED': {
+                emoji: '🚪',
+                title: 'Кикнули',
+                desc: 'Админ удалил агента из группы',
+                fix: 'Возможно сообщения были слишком "рекламными"'
+            },
+            'CHAT_WRITE_FORBIDDEN': {
+                emoji: '🔇',
+                title: 'Запрет писать',
+                desc: 'В группе read-only или мут от админов',
+                fix: 'Не наша вина — просто пропускаем'
+            },
+            'CHANNEL_PRIVATE': {
+                emoji: '🔒',
+                title: 'Приватный канал',
+                desc: 'Стал приватным или нас выкинули',
+                fix: 'Нужен инвайт-линк'
+            },
+            'PEER_FLOOD': {
+                emoji: '🌊',
+                title: 'PEER_FLOOD',
+                desc: 'Telegram заблокировал отправку незнакомым',
+                fix: '🚨 Срочно снизить активность! Иначе будет shadow ban'
+            },
+            'USERNAME_INVALID': {
+                emoji: '❓',
+                title: 'Удалена/невалидна',
+                desc: 'Группа удалена или username некорректный',
+                fix: 'Не наша вина'
+            },
+            'other': {
+                emoji: '❓',
+                title: 'Другое',
+                desc: 'Неклассифицированная ошибка',
+                fix: 'Смотри логи для деталей'
+            },
+        };
+
+        let recentBansHtml = '';
+        if (data.bans.length === 0) {
+            recentBansHtml = '<p class="text-green-600 text-sm">✨ Банов нет — отличная работа!</p>';
+        } else {
+            recentBansHtml = data.bans.slice(0, 5).map(b => {
+                const r = b.ban_reason || '';
+                let typeKey = 'other';
+                for (const k of Object.keys(reasonInfo)) {
+                    if (r.includes(k)) { typeKey = k; break; }
+                }
+                const info = reasonInfo[typeKey];
+                return `
+                    <div onclick="showBanDetail(${b.id})"
+                         class="bg-white rounded p-2 text-xs border-l-2 border-red-300 cursor-pointer hover:bg-red-50 transition">
+                        <div class="flex items-center justify-between">
+                            <span class="font-semibold">${info.emoji} ${escapeHtml((b.title || '').substring(0, 35))}</span>
+                            <span class="text-gray-400">${b.banned_at ? formatBanDate(b.banned_at) : ''}</span>
+                        </div>
+                        <div class="text-gray-500 mt-1">${info.title} • Agent #${b.banned_agent || '?'} <span class="text-blue-500">→ детали</span></div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        let reasonsHtml = '';
+        if (Object.keys(reasons).length === 0) {
+            reasonsHtml = '<p class="text-gray-400 text-sm">Нет данных</p>';
+        } else {
+            reasonsHtml = Object.entries(reasons).map(([key, count]) => {
+                const info = reasonInfo[key] || reasonInfo['other'];
+                const isCritical = key === 'PEER_FLOOD' || key === 'USER_BANNED_IN_CHANNEL';
+                // Найдём первую группу с этой причиной
+                const firstBan = data.bans.find(b => (b.ban_reason || '').includes(key)) ||
+                                 (key === 'other' && data.bans.find(b => {
+                                     const r = b.ban_reason || '';
+                                     return !Object.keys(reasonInfo).some(k => k !== 'other' && r.includes(k));
+                                 }));
+                const groupId = firstBan ? firstBan.id : null;
+                return `
+                    <div onclick="${groupId ? `showBanDetail(${groupId})` : ''}"
+                         class="bg-white rounded p-2 ${isCritical ? 'border-l-4 border-red-500' : 'border'} ${groupId ? 'cursor-pointer hover:bg-red-50 transition' : ''}">
+                        <div class="flex items-center justify-between">
+                            <span class="font-semibold text-sm">${info.emoji} ${info.title}</span>
+                            <span class="font-bold text-red-700">${count}</span>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">${info.desc}</div>
+                        <div class="text-xs text-blue-600 mt-1">💡 ${info.fix}</div>
+                        ${groupId ? '<div class="text-xs text-purple-600 mt-1 font-semibold">→ Кликни чтобы увидеть детали</div>' : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        c.innerHTML = `
+            <div>
+                <h4 class="font-semibold text-gray-700 mb-2 text-sm">📊 Распределение причин</h4>
+                <div class="space-y-2">
+                    ${reasonsHtml}
+                </div>
+                <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-white rounded p-2">
+                        <div class="text-xl font-bold text-red-600">${byStatus.banned || 0}</div>
+                        <div class="text-[10px] text-gray-500">забанен</div>
+                    </div>
+                    <div class="bg-white rounded p-2">
+                        <div class="text-xl font-bold text-orange-600">${byStatus.no_permission || 0}</div>
+                        <div class="text-[10px] text-gray-500">read-only</div>
+                    </div>
+                    <div class="bg-white rounded p-2">
+                        <div class="text-xl font-bold text-gray-600">${byStatus.private || 0}</div>
+                        <div class="text-[10px] text-gray-500">private</div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <h4 class="font-semibold text-gray-700 mb-2 text-sm">🕐 Последние ${Math.min(5, data.bans.length)} банов</h4>
+                <div class="space-y-2 max-h-64 overflow-y-auto scrollbar-thin">
+                    ${recentBansHtml}
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        console.error('Error loading bans:', err);
+    }
+}
+
+async function showBanDetail(groupId) {
+    const modal = document.getElementById('ban-detail-modal');
+    const body = document.getElementById('ban-detail-body');
+    const title = document.getElementById('ban-detail-title');
+
+    modal.classList.remove('hidden');
+    body.innerHTML = '<p class="text-gray-400 text-center py-8">⏳ Загрузка деталей...</p>';
+
+    try {
+        const res = await fetch(`/api/bans/${groupId}`);
+        if (!res.ok) {
+            body.innerHTML = '<p class="text-red-600">❌ Не удалось загрузить детали</p>';
+            return;
+        }
+        const data = await res.json();
+        const g = data.group;
+
+        title.textContent = `⛔ ${g.title || 'Без названия'}`;
+
+        // Маппинг причин для понятности
+        const errorTranslations = {
+            'USER_BANNED_IN_CHANNEL': '⛔ Админ забанил агента',
+            'USER_KICKED': '🚪 Админ кикнул из группы',
+            'CHAT_WRITE_FORBIDDEN': '🔇 Запрет писать (read-only)',
+            'CHANNEL_PRIVATE': '🔒 Канал стал приватным',
+            'PEER_FLOOD': '🌊 PEER_FLOOD — Telegram блокирует отправку',
+            'USERNAME_INVALID': '❓ Username стал невалидным',
+            'USER_DEACTIVATED': '💀 Аккаунт деактивирован Telegram',
+        };
+
+        const recommendations = {
+            'USER_BANNED_IN_CHANNEL': [
+                'Сообщения возможно слишком "рекламные" — переформулировать стиль',
+                'Уменьшить частоту в этой группе',
+                'Возможно админы группы строгие — это нормально, не страшно',
+            ],
+            'USER_KICKED': [
+                'Сообщения восприняли как спам',
+                'Проверь стиль ответов — слишком очевидная реклама?',
+            ],
+            'CHAT_WRITE_FORBIDDEN': [
+                'Это не вина агента — группа в режиме read-only',
+                'Помечаем как no_permission и пропускаем',
+            ],
+            'CHANNEL_PRIVATE': [
+                'Группа стала приватной — нужен инвайт',
+                'Не критично — пропускаем',
+            ],
+            'PEER_FLOOD': [
+                '🚨 КРИТИЧНО! Telegram считает аккаунт спамом',
+                'СРОЧНО: остановить отправки на 24 часа',
+                'Не отправлять незнакомым пользователям',
+                'Иначе будет shadow ban или полный бан аккаунта',
+            ],
+        };
+
+        // Группируем попытки по агентам
+        const attemptsByAgent = {};
+        data.attempts.forEach(a => {
+            if (!attemptsByAgent[a.agent_id]) {
+                attemptsByAgent[a.agent_id] = {
+                    agent_id: a.agent_id,
+                    phone: a.agent_phone,
+                    referral: a.referral_target,
+                    attempts: [],
+                };
+            }
+            attemptsByAgent[a.agent_id].attempts.push(a);
+        });
+
+        // Определяем основную причину
+        let mainReason = 'unknown';
+        for (const a of data.attempts) {
+            if (a.error_message) {
+                for (const k of Object.keys(errorTranslations)) {
+                    if (a.error_message.includes(k)) { mainReason = k; break; }
+                }
+                if (mainReason !== 'unknown') break;
+            }
+        }
+
+        const recs = recommendations[mainReason] || ['Без специальных рекомендаций'];
+
+        const groupHeader = `
+            <div class="bg-gradient-to-r from-red-50 to-orange-50 rounded p-4 mb-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="text-xs text-gray-500 uppercase">${g.is_channel ? '📢 Канал' : '👥 Группа'}</div>
+                        <div class="font-bold text-lg">${escapeHtml(g.title)}</div>
+                        ${g.username ? `<a href="https://t.me/${g.username}" target="_blank" class="text-blue-600 text-sm hover:underline">@${g.username}</a>` : ''}
+                        ${g.description ? `<div class="text-xs text-gray-600 mt-2">${escapeHtml(g.description.substring(0, 200))}</div>` : ''}
+                    </div>
+                    <div class="text-right">
+                        <div class="text-2xl font-bold">${(g.members_count || 0).toLocaleString()}</div>
+                        <div class="text-xs text-gray-500">участников</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const reasonBlock = `
+            <div class="bg-red-50 border-l-4 border-red-500 rounded p-4 mb-4">
+                <div class="font-semibold text-red-700">
+                    ${errorTranslations[mainReason] || `❓ ${mainReason}`}
+                </div>
+                <div class="text-xs text-gray-700 mt-2">
+                    <b>💡 Рекомендации:</b>
+                    <ul class="list-disc ml-5 mt-1 space-y-0.5">
+                        ${recs.map(r => `<li>${r}</li>`).join('')}
+                    </ul>
+                </div>
+            </div>
+        `;
+
+        // Блок попыток
+        let attemptsHtml = '';
+        if (Object.keys(attemptsByAgent).length === 0) {
+            attemptsHtml = '<p class="text-gray-400 text-sm">Нет данных о попытках</p>';
+        } else {
+            attemptsHtml = Object.values(attemptsByAgent).map(a => {
+                const lastAttempt = a.attempts[0];
+                return `
+                    <div class="bg-gray-50 rounded p-3 mb-2 border">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <span class="font-semibold">Agent #${a.agent_id}</span>
+                                <span class="text-xs text-gray-500">${escapeHtml(a.phone || '')}</span>
+                                ${a.referral ? `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded ml-2">${escapeHtml(a.referral)}</span>` : ''}
+                            </div>
+                            <span class="badge-${lastAttempt.status} px-2 py-0.5 rounded text-xs">${lastAttempt.status}</span>
+                        </div>
+                        ${lastAttempt.error_message ? `
+                            <div class="bg-white rounded p-2 mt-2 text-xs">
+                                <div class="text-gray-500 mb-1">Ошибка от Telegram:</div>
+                                <code class="text-red-600">${escapeHtml(lastAttempt.error_message)}</code>
+                            </div>
+                        ` : ''}
+                        <div class="text-xs text-gray-400 mt-2">
+                            Последняя попытка: ${formatDate(lastAttempt.last_attempt)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Блок последних сообщений в этой группе
+        let interactionsHtml = '';
+        if (data.interactions.length === 0) {
+            interactionsHtml = '<p class="text-gray-400 text-sm">Сообщений не было</p>';
+        } else {
+            interactionsHtml = data.interactions.map(i => `
+                <div class="bg-gray-50 rounded p-3 mb-2 text-xs">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-semibold">Agent #${i.agent_id}</span>
+                        <span class="text-gray-400">${formatDate(i.created_at)}</span>
+                    </div>
+                    <div class="bg-white rounded p-2 border-l-2 border-blue-300 mb-2">
+                        <div class="text-gray-500 text-[10px] uppercase mb-1">📥 Кому отвечали</div>
+                        <div class="text-gray-700">${escapeHtml((i.message_text || '').substring(0, 200))}</div>
+                    </div>
+                    <div class="bg-white rounded p-2 border-l-2 border-red-300">
+                        <div class="text-gray-500 text-[10px] uppercase mb-1">📤 Что отправлял агент</div>
+                        <div class="text-gray-700">${escapeHtml((i.response_text || '').substring(0, 200))}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        body.innerHTML = `
+            ${groupHeader}
+            ${reasonBlock}
+
+            <div class="mb-4">
+                <h4 class="font-semibold text-gray-700 mb-2">🤖 Попытки агентов (${Object.keys(attemptsByAgent).length})</h4>
+                ${attemptsHtml}
+            </div>
+
+            <div>
+                <h4 class="font-semibold text-gray-700 mb-2">💬 Что отправлял агент в эту группу до бана (${data.interactions.length})</h4>
+                <div class="max-h-64 overflow-y-auto scrollbar-thin">
+                    ${interactionsHtml}
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t flex justify-end space-x-2">
+                ${g.username ? `<a href="https://t.me/${g.username}" target="_blank" class="text-sm text-blue-600 hover:underline">→ Открыть в Telegram</a>` : ''}
+                <button onclick="hideBanDetail()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-1.5 rounded text-sm">Закрыть</button>
+            </div>
+        `;
+    } catch (err) {
+        body.innerHTML = `<p class="text-red-600">❌ Ошибка: ${err.message}</p>`;
+    }
+}
+
+function hideBanDetail() {
+    document.getElementById('ban-detail-modal').classList.add('hidden');
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') hideBanDetail();
+});
+
+function formatBanDate(s) {
+    if (!s) return '';
+    const d = parseUTC(s);
+    if (!d || isNaN(d)) return '';
+    const diffMin = (new Date() - d) / 60000;
+    if (diffMin < 60) return `${Math.floor(diffMin)}м`;
+    if (diffMin < 1440) return `${Math.floor(diffMin/60)}ч`;
+    return `${Math.floor(diffMin/1440)}д`;
+}
+
+// === Lessons (защита от банов) ===
+
+async function loadLessons() {
+    try {
+        const res = await fetch('/api/lessons');
+        const lessons = await res.json();
+        const c = document.getElementById('lessons-list');
+
+        if (!lessons || lessons.length === 0) {
+            c.innerHTML = '<p class="text-gray-400 text-sm">Пока нет правил. Они появятся автоматически после банов или добавь вручную.</p>';
+            return;
+        }
+
+        const enabled = lessons.filter(l => l.enabled);
+        const disabled = lessons.filter(l => !l.enabled);
+
+        const auto = lessons.filter(l => l.auto_learned);
+        const manual = lessons.filter(l => !l.auto_learned);
+
+        c.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                <div class="bg-white rounded p-2 text-center border border-green-200">
+                    <div class="text-xl font-bold text-green-700">${enabled.length}</div>
+                    <div class="text-[10px] text-gray-500">Активных</div>
+                </div>
+                <div class="bg-white rounded p-2 text-center border border-gray-300">
+                    <div class="text-xl font-bold text-gray-600">${disabled.length}</div>
+                    <div class="text-[10px] text-gray-500">Отключено</div>
+                </div>
+                <div class="bg-white rounded p-2 text-center border border-blue-200">
+                    <div class="text-xl font-bold text-blue-700">${auto.length}</div>
+                    <div class="text-[10px] text-gray-500">📚 Авто-выучено</div>
+                </div>
+                <div class="bg-white rounded p-2 text-center border border-purple-200">
+                    <div class="text-xl font-bold text-purple-700">${manual.length}</div>
+                    <div class="text-[10px] text-gray-500">✋ Вручную</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded p-2">
+                <div class="grid grid-cols-12 gap-2 text-[10px] uppercase font-semibold text-gray-500 px-2 py-1 border-b">
+                    <div class="col-span-1"></div>
+                    <div class="col-span-3">Запрещённая фраза</div>
+                    <div class="col-span-2">Тема</div>
+                    <div class="col-span-1 text-center">Banned</div>
+                    <div class="col-span-1 text-center">Trigger</div>
+                    <div class="col-span-3">Рекомендация</div>
+                    <div class="col-span-1 text-right">Действия</div>
+                </div>
+                <div class="max-h-72 overflow-y-auto scrollbar-thin">
+                ${lessons.map(l => `
+                    <div class="grid grid-cols-12 gap-2 items-center px-2 py-2 hover:bg-gray-50 border-b border-gray-100 ${!l.enabled ? 'opacity-50' : ''}">
+                        <div class="col-span-1">
+                            <input type="checkbox" ${l.enabled ? 'checked' : ''}
+                                   onchange="toggleLesson(${l.id}, this.checked)"
+                                   class="w-4 h-4 cursor-pointer">
+                        </div>
+                        <div class="col-span-3 font-mono text-sm font-semibold text-red-700 truncate" title="${escapeHtml(l.forbidden_phrase)}">
+                            "${escapeHtml(l.forbidden_phrase)}"
+                            ${l.auto_learned ? '<span class="text-[9px] bg-blue-100 text-blue-700 px-1 rounded ml-1">📚</span>' : '<span class="text-[9px] bg-purple-100 text-purple-700 px-1 rounded ml-1">✋</span>'}
+                        </div>
+                        <div class="col-span-2 text-xs text-gray-600">${l.topic || '—'}</div>
+                        <div class="col-span-1 text-center">
+                            <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">${l.ban_count || 0}</span>
+                        </div>
+                        <div class="col-span-1 text-center">
+                            <span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded" title="Сколько раз сработала защита">${l.trigger_count || 0}</span>
+                        </div>
+                        <div class="col-span-3 text-xs text-gray-600 truncate" title="${escapeHtml(l.recommendation || '')}">${escapeHtml(l.recommendation || '—')}</div>
+                        <div class="col-span-1 text-right">
+                            <button onclick="deleteLesson(${l.id})" class="text-red-500 hover:bg-red-100 px-1.5 py-0.5 rounded text-xs" title="Удалить">🗑</button>
+                        </div>
+                    </div>
+                `).join('')}
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        console.error('Lessons load error:', err);
+    }
+}
+
+async function toggleLesson(lid, enabled) {
+    await fetch(`/api/lessons/${lid}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ enabled })
+    });
+    loadLessons();
+}
+
+async function deleteLesson(lid) {
+    if (!confirm('Удалить правило?')) return;
+    await fetch(`/api/lessons/${lid}`, { method: 'DELETE' });
+    loadLessons();
+}
+
+function showAddLessonModal() {
+    document.getElementById('lesson-modal').classList.remove('hidden');
+    document.getElementById('lesson-phrase').value = '';
+    document.getElementById('lesson-recommendation').value = '';
+    document.getElementById('lesson-phrase').focus();
+}
+
+function hideAddLessonModal() {
+    document.getElementById('lesson-modal').classList.add('hidden');
+}
+
+async function saveLesson() {
+    const phrase = document.getElementById('lesson-phrase').value.trim();
+    const topic = document.getElementById('lesson-topic').value;
+    const rec = document.getElementById('lesson-recommendation').value.trim();
+
+    if (!phrase) {
+        alert('❌ Укажи фразу');
+        return;
+    }
+
+    const res = await fetch('/api/lessons/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            forbidden_phrase: phrase,
+            topic: topic,
+            recommendation: rec || `Не использовать фразу "${phrase}"`,
+        })
+    });
+    const data = await res.json();
+    if (data.success) {
+        hideAddLessonModal();
+        loadLessons();
+    } else {
+        alert('❌ ' + (data.error || 'Не удалось сохранить'));
+    }
+}
+
+async function loadAgentsRisk() {
+    try {
+        const res = await fetch('/api/agents-risk');
+        const data = await res.json();
+        const container = document.getElementById('agents-risk');
+
+        if (!data.agents || data.agents.length === 0) {
+            container.innerHTML = '<p class="text-gray-400 text-sm">Агентов нет</p>';
+            return;
+        }
+
+        const now = new Date();
+        container.innerHTML = data.agents.map(a => {
+            let badge, info;
+            if (a.at_risk && a.recover_after) {
+                // SQLite возвращает время в UTC без 'Z' — добавим
+                const recoverAt = new Date(a.recover_after.replace(' ', 'T') + 'Z');
+                recoverAt.setHours(recoverAt.getHours() + 24);
+                const diffMs = recoverAt - now;
+                let when;
+                if (diffMs <= 0) {
+                    when = '<span class="text-green-600">вот-вот</span>';
+                } else {
+                    const h = Math.floor(diffMs / 3600000);
+                    const m = Math.floor((diffMs % 3600000) / 60000);
+                    when = `через <b>${h}ч ${m}м</b> (${recoverAt.toLocaleString('ru-RU')})`;
+                }
+                badge = `<span class="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded">⚠️ AT RISK · ${a.bans_24h} бан/fail за 24ч</span>`;
+                info = `<span class="text-sm text-gray-600">Восстановится ${when}</span>`;
+            } else if (a.bans_24h > 0) {
+                badge = `<span class="bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-1 rounded">⚠ ${a.bans_24h} бан/fail за 24ч</span>`;
+                info = `<span class="text-sm text-gray-500">Работает в обычном режиме</span>`;
+            } else {
+                badge = `<span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">✓ OK</span>`;
+                info = `<span class="text-sm text-gray-500">Чисто за 24ч</span>`;
+            }
+            return `
+                <div class="flex items-center justify-between border-b last:border-b-0 py-2">
+                    <div>
+                        <div class="font-medium text-gray-800">#${a.id} · ${escapeHtml(a.label)}</div>
+                        <div class="text-xs text-gray-400">статус: ${escapeHtml(a.status || '—')}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="mb-1">${badge}</div>
+                        <div>${info}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('Error loading agents risk:', err);
+    }
+}
+
+function loadAllData() {
+    loadStats();
+    loadHourChart();
+    loadTopGroups();
+    loadScoutSchedule();
+    loadBansAnalysis();
+    loadLessons();
+    loadAgentsRisk();
+}
+
+// Auto-refresh
+loadAllData();
+setInterval(loadAllData, 30000);
+</script>
+{% endblock %}

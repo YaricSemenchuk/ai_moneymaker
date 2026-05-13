@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+
+{% block title %}Юзеры{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">👤 Активные пользователи</h2>
+    <p class="text-gray-600">Те кто писал релевантное в группах. Чем выше интерес — тем горячее лид.</p>
+</div>
+
+<!-- Info banner -->
+<div class="bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500 p-4 rounded-lg mb-6">
+    <div class="flex items-start space-x-3">
+        <span class="text-2xl">🎯</span>
+        <div>
+            <h3 class="font-semibold text-gray-800">Стратегия "Тёплый контакт"</h3>
+            <p class="text-sm text-gray-600 mt-1">
+                Агент собирает профили активных юзеров (тех кто пишет про заработок, фриланс, крипту).
+                Когда они снова что-то пишут в группе — отвечаем им <b>там же</b> с упоминанием бота/группы.
+                <b>Никаких DM незнакомым</b> — это безопасно и даёт высокую конверсию.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="stat-card bg-white rounded-lg p-6 shadow-md border-l-4 border-blue-500">
+        <p class="text-gray-500 text-sm uppercase">Всего юзеров</p>
+        <p class="text-3xl font-bold text-gray-800" id="stat-total">-</p>
+    </div>
+    <div class="stat-card bg-white rounded-lg p-6 shadow-md border-l-4 border-green-500">
+        <p class="text-gray-500 text-sm uppercase">Сегодня активны</p>
+        <p class="text-3xl font-bold text-gray-800" id="stat-today">-</p>
+    </div>
+    <div class="stat-card bg-white rounded-lg p-6 shadow-md border-l-4 border-purple-500">
+        <p class="text-gray-500 text-sm uppercase">Сообщений собрано</p>
+        <p class="text-3xl font-bold text-gray-800" id="stat-messages">-</p>
+    </div>
+    <div class="stat-card bg-white rounded-lg p-6 shadow-md border-l-4 border-orange-500">
+        <p class="text-gray-500 text-sm uppercase">Средний интерес</p>
+        <p class="text-3xl font-bold text-gray-800" id="stat-interest">-</p>
+    </div>
+</div>
+
+<!-- Status distribution -->
+<div class="bg-white rounded-lg p-6 shadow-md mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-3">📊 Распределение по статусам</h3>
+    <div id="status-distribution" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-lg p-4 shadow-md mb-6 flex flex-wrap items-center gap-3">
+    <span class="font-semibold text-gray-700">Фильтр:</span>
+    <button onclick="filterStatus('all')" class="status-btn active px-4 py-2 rounded-lg bg-blue-500 text-white text-sm">Все</button>
+    <button onclick="filterStatus('new')" class="status-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm">🆕 Новые</button>
+    <button onclick="filterStatus('engaged')" class="status-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm">💬 С ответом</button>
+    <button onclick="filterStatus('converted')" class="status-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm">✅ Конвертированы</button>
+    <button onclick="filterStatus('blocked')" class="status-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm">⛔ Заблокированы</button>
+
+    <span class="border-l border-gray-300 mx-2 h-6"></span>
+
+    <label class="text-sm text-gray-600">Мин. сообщений:</label>
+    <input type="number" id="min-messages" value="0" min="0" max="100"
+           onchange="loadUsers()"
+           class="w-20 border border-gray-300 rounded px-2 py-1 text-sm">
+
+    <div class="ml-auto">
+        <input type="text" id="search-input" placeholder="🔍 Поиск..."
+               oninput="renderUsers()"
+               class="px-4 py-2 border rounded-lg text-sm w-64">
+    </div>
+</div>
+
+<!-- Users table -->
+<div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+    <div class="overflow-x-auto">
+        <table class="min-w-full">
+            <thead class="bg-gray-100 border-b">
+                <tr>
+                    <th class="text-left px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Пользователь</th>
+                    <th class="text-center px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Статус</th>
+                    <th class="text-right px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Сообщ.</th>
+                    <th class="text-right px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Интерес</th>
+                    <th class="text-left px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Последняя активность</th>
+                    <th class="text-left px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Группа</th>
+                    <th class="text-center px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Действия</th>
+                </tr>
+            </thead>
+            <tbody id="users-tbody" class="divide-y divide-gray-200">
+                <tr><td colspan="7" class="text-center py-12 text-gray-400">⏳ Загрузка...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- User detail modal -->
+<div id="user-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-3xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-800" id="user-modal-title">Профиль</h3>
+            <button onclick="hideUserModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">✕</button>
+        </div>
+        <div id="user-modal-body" class="space-y-4">⏳</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allUsers = [];
+let currentStatus = 'all';
+let searchQuery = '';
+
+async function loadStats() {
+    try {
+        const res = await fetch('/api/users/stats');
+        const data = await res.json();
+        document.getElementById('stat-total').textContent = data.total_users || 0;
+        document.getElementById('stat-today').textContent = data.today_users || 0;
+        document.getElementById('stat-messages').textContent = data.total_messages || 0;
+        document.getElementById('stat-interest').textContent = ((data.avg_interest || 0) * 100).toFixed(0) + '%';
+
+        const statusEmoji = { new: '🆕', engaged: '💬', converted: '✅', blocked: '⛔' };
+        const statusColor = { new: 'blue', engaged: 'green', converted: 'purple', blocked: 'red' };
+        const c = document.getElementById('status-distribution');
+        const byStatus = data.by_status || {};
+
+        if (Object.keys(byStatus).length === 0) {
+            c.innerHTML = '<p class="text-gray-400 text-sm col-span-4">Нет данных</p>';
+            return;
+        }
+
+        c.innerHTML = ['new', 'engaged', 'converted', 'blocked'].map(s => {
+            const count = byStatus[s] || 0;
+            const color = statusColor[s];
+            return `
+                <div class="bg-${color}-50 rounded p-3 text-center border border-${color}-200">
+                    <div class="text-2xl">${statusEmoji[s]}</div>
+                    <div class="text-2xl font-bold text-${color}-700 mt-1">${count}</div>
+                    <div class="text-xs text-gray-600 capitalize">${s}</div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('Error loading stats:', err);
+    }
+}
+
+async function loadUsers() {
+    try {
+        const minMsg = document.getElementById('min-messages').value || 0;
+        let url = `/api/users?limit=500&min_messages=${minMsg}`;
+        if (currentStatus !== 'all') url += `&status=${currentStatus}`;
+
+        const res = await fetch(url);
+        allUsers = await res.json();
+        renderUsers();
+    } catch (err) {
+        console.error('Error loading users:', err);
+    }
+}
+
+function renderUsers() {
+    let users = allUsers;
+
+    if (searchQuery = (document.getElementById('search-input').value || '').toLowerCase()) {
+        users = users.filter(u =>
+            (u.username || '').toLowerCase().includes(searchQuery) ||
+            (u.first_name || '').toLowerCase().includes(searchQuery) ||
+            (u.last_message_text || '').toLowerCase().includes(searchQuery)
+        );
+    }
+
+    const tbody = document.getElementById('users-tbody');
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-12 text-gray-400">Нет юзеров для отображения</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = users.map(u => {
+        const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || 'Без имени';
+        const interestPct = ((u.avg_interest_level || 0) * 100).toFixed(0);
+        const interestColor = u.avg_interest_level > 0.5 ? 'red' :
+                              u.avg_interest_level > 0.3 ? 'orange' : 'gray';
+        return `
+            <tr class="hover:bg-gray-50 transition cursor-pointer" onclick="showUserDetail(${u.id})">
+                <td class="px-6 py-4">
+                    <div class="font-semibold text-gray-900">${escapeHtml(name)}</div>
+                    ${u.username
+                        ? `<a href="https://t.me/${u.username}" target="_blank" onclick="event.stopPropagation()" class="text-xs text-blue-600 hover:underline">@${u.username}</a>`
+                        : `<span class="text-xs text-gray-400">id: ${u.telegram_user_id}</span>`}
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <span class="badge-${u.status} px-2 py-1 rounded-full text-xs">${u.status}</span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <span class="font-bold text-blue-600">${u.total_relevant_messages || 0}</span>
+                    <div class="text-xs text-gray-400">в ${u.groups_count || 0} группах</div>
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <span class="font-bold text-${interestColor}-600">${interestPct}%</span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">${formatDate(u.last_seen_at)}</td>
+                <td class="px-6 py-4 text-sm">
+                    ${u.last_group_username
+                        ? `<a href="https://t.me/${u.last_group_username}" target="_blank" onclick="event.stopPropagation()" class="text-blue-600 hover:underline">${escapeHtml((u.last_group_title || '').substring(0, 25))}</a>`
+                        : `<span class="text-gray-400">${escapeHtml((u.last_group_title || '').substring(0, 25))}</span>`}
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <button onclick="event.stopPropagation(); showUserDetail(${u.id})"
+                            class="text-blue-500 hover:text-blue-700 text-sm">📋 Детали</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function showUserDetail(userId) {
+    document.getElementById('user-modal').classList.remove('hidden');
+    document.getElementById('user-modal-body').innerHTML = '⏳ Загрузка...';
+
+    try {
+        const res = await fetch(`/api/users/${userId}`);
+        const data = await res.json();
+        const p = data.profile;
+
+        const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Без имени';
+        document.getElementById('user-modal-title').textContent = `👤 ${name}`;
+
+        const interestPct = ((p.avg_interest_level || 0) * 100).toFixed(0);
+
+        const messagesHtml = data.messages.map(m => `
+            <div class="bg-gray-50 rounded p-3 border-l-2 border-blue-300">
+                <div class="flex items-center justify-between mb-1 text-xs">
+                    <div class="text-gray-500">
+                        ${m.group_title ? `📍 ${escapeHtml(m.group_title)}` : ''}
+                        ${m.group_username ? ` (@${escapeHtml(m.group_username)})` : ''}
+                    </div>
+                    <div class="text-gray-400">${formatDate(m.created_at)}</div>
+                </div>
+                <div class="text-gray-700 text-sm">${escapeHtml(m.message_text || '')}</div>
+                <div class="flex items-center space-x-3 mt-2 text-xs">
+                    <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                        интерес ${((m.interest_level || 0) * 100).toFixed(0)}%
+                    </span>
+                    ${m.intent ? `<span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded">${m.intent}</span>` : ''}
+                    ${m.replied_by_agent_id
+                        ? `<span class="bg-green-100 text-green-700 px-2 py-0.5 rounded">✅ Ответил Agent #${m.replied_by_agent_id}</span>`
+                        : '<span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded">не ответили</span>'}
+                </div>
+            </div>
+        `).join('') || '<p class="text-gray-400 text-sm">Нет сообщений</p>';
+
+        document.getElementById('user-modal-body').innerHTML = `
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div class="bg-blue-50 p-3 rounded text-center">
+                    <div class="text-2xl font-bold text-blue-700">${p.total_relevant_messages || 0}</div>
+                    <div class="text-xs text-gray-600">сообщений</div>
+                </div>
+                <div class="bg-green-50 p-3 rounded text-center">
+                    <div class="text-2xl font-bold text-green-700">${p.groups_count || 0}</div>
+                    <div class="text-xs text-gray-600">групп</div>
+                </div>
+                <div class="bg-purple-50 p-3 rounded text-center">
+                    <div class="text-2xl font-bold text-purple-700">${interestPct}%</div>
+                    <div class="text-xs text-gray-600">интерес</div>
+                </div>
+                <div class="bg-orange-50 p-3 rounded text-center">
+                    <div class="text-2xl font-bold text-orange-700 capitalize">${p.language || '?'}</div>
+                    <div class="text-xs text-gray-600">язык</div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded p-3 mb-4 flex items-center justify-between">
+                <div>
+                    <div class="text-xs text-gray-500">User ID: ${p.telegram_user_id}</div>
+                    ${p.username ? `<a href="https://t.me/${p.username}" target="_blank" class="text-blue-600 font-mono">@${p.username}</a>` : ''}
+                    <div class="text-xs text-gray-500 mt-1">Впервые: ${formatDate(p.first_seen_at)} • Последняя: ${formatDate(p.last_seen_at)}</div>
+                </div>
+                <div>
+                    <select onchange="changeStatus(${p.id}, this.value)" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                        <option value="new" ${p.status === 'new' ? 'selected' : ''}>🆕 new</option>
+                        <option value="engaged" ${p.status === 'engaged' ? 'selected' : ''}>💬 engaged</option>
+                        <option value="converted" ${p.status === 'converted' ? 'selected' : ''}>✅ converted</option>
+                        <option value="blocked" ${p.status === 'blocked' ? 'selected' : ''}>⛔ blocked</option>
+                    </select>
+                </div>
+            </div>
+
+            <h4 class="font-semibold text-gray-700 mb-2">📨 История сообщений (${data.messages.length})</h4>
+            <div class="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
+                ${messagesHtml}
+            </div>
+        `;
+    } catch (err) {
+        document.getElementById('user-modal-body').innerHTML = `<p class="text-red-600">❌ ${err.message}</p>`;
+    }
+}
+
+function hideUserModal() {
+    document.getElementById('user-modal').classList.add('hidden');
+}
+
+async function changeStatus(userId, status) {
+    try {
+        await fetch(`/api/users/${userId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        loadStats();
+        loadUsers();
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function filterStatus(s) {
+    currentStatus = s;
+    document.querySelectorAll('.status-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-blue-500', 'text-white');
+        btn.classList.add('bg-gray-200');
+    });
+    event.target.classList.remove('bg-gray-200');
+    event.target.classList.add('active', 'bg-blue-500', 'text-white');
+    loadUsers();
+}
+
+// SQLite пишет время в UTC без TZ маркера. JS парсит как local → нужно явно UTC.
+function parseUTC(s) {
+    if (!s) return null;
+    // Если уже ISO с Z или offset - оставляем
+    if (/[Zz]|[+-]\d{2}:?\d{2}$/.test(s)) return new Date(s);
+    // Иначе считаем UTC
+    return new Date(s.replace(' ', 'T') + 'Z');
+}
+
+function formatDate(s) {
+    if (!s) return '—';
+    const d = parseUTC(s);
+    if (!d || isNaN(d)) return '—';
+
+    const diffMin = (new Date() - d) / 60000;
+    const fullTime = d.toLocaleString('ru-RU', {
+        day: '2-digit', month: '2-digit', year: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+    });
+
+    let relative;
+    if (diffMin < 1) relative = 'только что';
+    else if (diffMin < 60) relative = `${Math.floor(diffMin)}м назад`;
+    else if (diffMin < 1440) relative = `${Math.floor(diffMin/60)}ч назад`;
+    else relative = `${Math.floor(diffMin/1440)}д назад`;
+
+    return `<span title="${fullTime}">${fullTime} <span class="text-gray-400">(${relative})</span></span>`;
+}
+
+function formatDateShort(s) {
+    if (!s) return '—';
+    const d = parseUTC(s);
+    if (!d || isNaN(d)) return '—';
+    const diffMin = (new Date() - d) / 60000;
+    if (diffMin < 1) return 'только что';
+    if (diffMin < 60) return `${Math.floor(diffMin)}м назад`;
+    if (diffMin < 1440) return `${Math.floor(diffMin/60)}ч назад`;
+    return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function escapeHtml(t) {
+    const d = document.createElement('div');
+    d.textContent = t || '';
+    return d.innerHTML;
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') hideUserModal();
+});
+
+loadStats();
+loadUsers();
+setInterval(() => { loadStats(); loadUsers(); }, 30000);
+</script>
+{% endblock %}
