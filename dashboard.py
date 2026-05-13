@@ -1614,6 +1614,81 @@ def api_test_proactive():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ============================================
+# AGENT PROCESS CONTROL (start/stop multi_agent.py from UI)
+# ============================================
+_AGENT_PID_FILE = os.path.join(os.path.dirname(DB_PATH) or ".", "agent.pid")
+_AGENT_LOG_FILE = os.path.join(os.path.dirname(DB_PATH) or ".", "agent.log")
+
+
+def _agent_pid_alive() -> int:
+    """Return PID if a running agent process exists per pidfile, else 0."""
+    try:
+        with open(_AGENT_PID_FILE) as f:
+            pid = int(f.read().strip())
+        os.kill(pid, 0)
+        return pid
+    except Exception:
+        return 0
+
+
+@app.route('/api/agent/status')
+def api_agent_status():
+    pid = _agent_pid_alive()
+    return jsonify({"running": bool(pid), "pid": pid})
+
+
+@app.route('/api/agent/start', methods=['POST'])
+def api_agent_start():
+    if _agent_pid_alive():
+        return jsonify({"ok": False, "error": "уже запущен"}), 409
+    try:
+        log = open(_AGENT_LOG_FILE, "ab")
+        proc = subprocess.Popen(
+            [sys.executable, "-u", "multi_agent.py"],
+            cwd=app.root_path,
+            stdout=log, stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        with open(_AGENT_PID_FILE, "w") as f:
+            f.write(str(proc.pid))
+        return jsonify({"ok": True, "pid": proc.pid})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/agent/stop', methods=['POST'])
+def api_agent_stop():
+    import signal
+    pid = _agent_pid_alive()
+    if not pid:
+        return jsonify({"ok": False, "error": "не запущен"}), 404
+    try:
+        os.killpg(os.getpgid(pid), signal.SIGTERM)
+    except Exception:
+        try: os.kill(pid, signal.SIGTERM)
+        except Exception as e: return jsonify({"ok": False, "error": str(e)}), 500
+    try: os.remove(_AGENT_PID_FILE)
+    except Exception: pass
+    return jsonify({"ok": True})
+
+
+@app.route('/api/agent/log')
+def api_agent_log():
+    try:
+        with open(_AGENT_LOG_FILE) as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - 8192))
+            tail = f.read()
+        return jsonify({"ok": True, "log": tail})
+    except FileNotFoundError:
+        return jsonify({"ok": True, "log": ""})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "5001"))
     print("=" * 60)

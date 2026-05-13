@@ -162,14 +162,44 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 3px; }
 
+        /* Telegram Mini App: всегда одна колонка для lg/md grid'ов */
+        body.miniapp .md\:grid-cols-2,
+        body.miniapp .md\:grid-cols-3,
+        body.miniapp .md\:grid-cols-4,
+        body.miniapp .lg\:grid-cols-2,
+        body.miniapp .lg\:grid-cols-3,
+        body.miniapp .lg\:grid-cols-4,
+        body.miniapp .sm\:grid-cols-2,
+        body.miniapp .sm\:grid-cols-3 { grid-template-columns: 1fr !important; }
+        body.miniapp .grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4,
+        body.miniapp .grid-cols-1.md\:grid-cols-4 { grid-template-columns: repeat(2, 1fr) !important; }
+        body.miniapp .max-w-7xl { max-width: 100% !important; }
+        body.miniapp { overflow-x: hidden; }
+        body.miniapp main, body.miniapp main * { max-width: 100% !important; }
+        body.miniapp .text-3xl { font-size: 1.5rem !important; }
+        body.miniapp .text-2xl { font-size: 1.25rem !important; }
+        body.miniapp .p-6, body.miniapp .p-8 { padding: 14px !important; }
+        body.miniapp table { display: block; overflow-x: auto; }
+
+        /* Floating Agent control button in header */
+        .agent-ctl {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 12px; border-radius: 99px;
+            font-size: 12px; font-weight: 600;
+            background: var(--brand-grad); color: #fff;
+            cursor: pointer; border: none;
+            box-shadow: 0 4px 12px -2px rgba(124,58,237,0.4);
+            transition: filter .2s;
+        }
+        .agent-ctl:hover { filter: brightness(1.1); }
+        .agent-ctl.running { background: var(--money-grad); }
+        .agent-ctl.running:hover { background: var(--danger); }
+        .agent-ctl .dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+        .agent-ctl.running .dot { animation: pulse 1.5s ease-in-out infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
         @media (max-width: 640px) {
-            .md\:grid-cols-2, .md\:grid-cols-3, .md\:grid-cols-4,
-            .lg\:grid-cols-2, .lg\:grid-cols-3, .lg\:grid-cols-4 {
-                grid-template-columns: repeat(2, 1fr) !important;
-            }
-            .text-3xl { font-size: 1.5rem !important; }
-            .text-2xl { font-size: 1.25rem !important; }
-            .p-6, .p-8 { padding: 12px !important; }
+            .agent-ctl { padding: 5px 10px; font-size: 11px; }
         }
     </style>
 
@@ -183,7 +213,10 @@
             <div class="brand-title">{% block header_title %}MoneyMaker AI{% endblock %}</div>
             <div class="brand-subtitle" id="tg-user-label">подключение…</div>
         </div>
-        <div id="tg-status" style="width:8px; height:8px; border-radius:50%; background:var(--money); box-shadow:0 0 8px var(--money)"></div>
+        <button id="agent-ctl" class="agent-ctl" type="button" onclick="toggleAgent()">
+            <span class="dot"></span>
+            <span id="agent-ctl-label">…</span>
+        </button>
     </header>
 
     <nav class="gradient-bg text-white shadow-lg">
@@ -223,6 +256,9 @@
     </nav>
 
     <script>
+        // Force single-column mobile layout always (Mini App webview)
+        document.body.classList.add('miniapp');
+
         const tg = window.Telegram && window.Telegram.WebApp;
         if (tg) {
             tg.ready();
@@ -289,6 +325,54 @@
             div.textContent = text || '';
             return div.innerHTML;
         };
+
+        // ===== Agent control =====
+        async function refreshAgentStatus() {
+            const btn = document.getElementById('agent-ctl');
+            const lbl = document.getElementById('agent-ctl-label');
+            if (!btn || !lbl) return;
+            try {
+                const r = await fetch('/api/agent/status');
+                const j = await r.json();
+                if (j.running) {
+                    btn.classList.add('running');
+                    lbl.textContent = 'Работает · стоп';
+                } else {
+                    btn.classList.remove('running');
+                    lbl.textContent = '▶ Запустить';
+                }
+            } catch(e) { lbl.textContent = '—'; }
+        }
+
+        async function toggleAgent() {
+            const btn = document.getElementById('agent-ctl');
+            const lbl = document.getElementById('agent-ctl-label');
+            const running = btn.classList.contains('running');
+            const action = running ? 'stop' : 'start';
+
+            if (running && tg && tg.showConfirm) {
+                await new Promise(res => tg.showConfirm('Остановить агента?', ok => res(ok)))
+                    .then(ok => { if (!ok) throw 'cancel'; })
+                    .catch(() => { throw 'cancel'; });
+            }
+
+            lbl.textContent = action === 'start' ? 'запуск…' : 'стоп…';
+            try {
+                const r = await fetch('/api/agent/' + action, { method: 'POST' });
+                const j = await r.json();
+                if (!j.ok) {
+                    if (tg && tg.showAlert) tg.showAlert(j.error || 'Ошибка');
+                    else alert(j.error || 'Ошибка');
+                }
+                if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred(j.ok ? 'success' : 'error');
+            } catch(e) {
+                if (e !== 'cancel' && tg && tg.showAlert) tg.showAlert(String(e));
+            }
+            setTimeout(refreshAgentStatus, 800);
+        }
+
+        refreshAgentStatus();
+        setInterval(refreshAgentStatus, 10000);
     </script>
 
     {% block scripts %}{% endblock %}
