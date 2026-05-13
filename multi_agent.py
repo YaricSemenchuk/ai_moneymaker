@@ -23,6 +23,7 @@ from config_agent import (
     LISTENING_INTEREST_THRESHOLD,
     REACTIONS_ENABLED, REACTION_EMOJIS, REACTION_INTEREST_MIN,
     REACTION_INTEREST_MAX, REACTIONS_MAX_PER_HOUR,
+    SESSIONS_DIR,
 )
 import random
 import time as _time
@@ -139,7 +140,7 @@ class SingleAgent:
             name=self.session_name,
             api_id=TELEGRAM_API_ID,
             api_hash=TELEGRAM_API_HASH,
-            workdir="sessions",
+            workdir=SESSIONS_DIR,
         )
         proxy_dict = _parse_proxy_url(agent_info.get("proxy_url"))
         if proxy_dict:

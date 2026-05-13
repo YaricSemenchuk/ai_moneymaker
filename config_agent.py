@@ -220,3 +220,4 @@ PROACTIVE_ACTIVE_HOUR_END = 22
 # Логирование
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 DB_PATH = os.getenv("DB_PATH", "moneymaker_agent.db")
+SESSIONS_DIR = os.getenv("SESSIONS_DIR", "sessions")

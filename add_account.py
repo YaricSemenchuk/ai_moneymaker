@@ -21,7 +21,7 @@ import sys
 from typing import Optional
 
 from pyrogram import Client
-from config_agent import TELEGRAM_API_ID, TELEGRAM_API_HASH
+from config_agent import TELEGRAM_API_ID, TELEGRAM_API_HASH, SESSIONS_DIR
 from agent_database import AgentDatabase
 
 
@@ -71,11 +71,11 @@ async def add_via_sms(proxy_url: Optional[str]):
     default = f"agent_{count + 1}"
     session_name = input(f"💾 session-name [{default}]: ").strip() or default
 
-    os.makedirs("sessions", exist_ok=True)
+    os.makedirs(SESSIONS_DIR, exist_ok=True)
 
     kwargs = dict(
         name=session_name, api_id=TELEGRAM_API_ID, api_hash=TELEGRAM_API_HASH,
-        phone_number=phone, workdir="sessions",
+        phone_number=phone, workdir=SESSIONS_DIR,
     )
     from multi_agent import _parse_proxy_url
     pd = _parse_proxy_url(proxy_url)
@@ -115,8 +115,8 @@ async def add_via_tdata(tdata_path: str, passcode: Optional[str],
     db = AgentDatabase()
     count = _existing_count(db)
     session_name = session_name or f"agent_{count + 1}"
-    os.makedirs("sessions", exist_ok=True)
-    session_path = os.path.join("sessions", session_name)
+    os.makedirs(SESSIONS_DIR, exist_ok=True)
+    session_path = os.path.join(SESSIONS_DIR, session_name)
 
     print(f"📂 tdata: {tdata_path}")
     print(f"💾 session: sessions/{session_name}.session")

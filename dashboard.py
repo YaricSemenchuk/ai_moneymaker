@@ -869,8 +869,8 @@ async def _run_tdata_import(tdata_dir: str, passcode, proxy_url, session_name,
     except ImportError:
         return {"success": False, "error": "opentele не установлен. pip install opentele"}
 
-    os.makedirs("sessions", exist_ok=True)
-    session_path = os.path.join("sessions", session_name)
+    os.makedirs(SESSIONS_DIR, exist_ok=True)
+    session_path = os.path.join(SESSIONS_DIR, session_name)
 
     try:
         tdesk = TDesktop(tdata_dir, passcode=passcode) if passcode else TDesktop(tdata_dir)
@@ -975,11 +975,11 @@ async def _sms_start_async(phone: str, proxy_url, session_name: str):
     from config_agent import TELEGRAM_API_ID, TELEGRAM_API_HASH
     from multi_agent import _parse_proxy_url
     import os
-    os.makedirs("sessions", exist_ok=True)
+    os.makedirs(SESSIONS_DIR, exist_ok=True)
 
     kwargs = dict(
         name=session_name, api_id=TELEGRAM_API_ID, api_hash=TELEGRAM_API_HASH,
-        phone_number=phone, workdir="sessions",
+        phone_number=phone, workdir=SESSIONS_DIR,
     )
     pd = _parse_proxy_url(proxy_url)
     if pd:
