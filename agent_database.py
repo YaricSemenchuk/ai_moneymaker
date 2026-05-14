@@ -101,6 +101,18 @@ class AgentDatabase:
         except sqlite3.OperationalError:
             pass
 
+        # Миграция: source_keyword / source_category для target_groups
+        # (что именно нашло группу при scouting — нужно для назначения по категории)
+        for col_def in [
+            ('source_keyword', 'ALTER TABLE target_groups ADD COLUMN source_keyword TEXT'),
+            ('source_category','ALTER TABLE target_groups ADD COLUMN source_category TEXT'),
+        ]:
+            try: cursor.execute(col_def[1])
+            except sqlite3.OperationalError: pass
+        try:
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_target_groups_category ON target_groups(source_category)')
+        except sqlite3.OperationalError: pass
+
         # Interactions table (logs of messages sent by agents)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS interactions (
@@ -403,25 +415,53 @@ class AgentDatabase:
 
     def add_target_group(self, telegram_group_id: int, title: str, username: Optional[str] = None,
                         description: Optional[str] = None, members_count: Optional[int] = None,
-                        is_channel: bool = False, linked_chat_id: Optional[int] = None) -> int:
-        """Add a new target group or channel."""
+                        is_channel: bool = False, linked_chat_id: Optional[int] = None,
+                        source_keyword: Optional[str] = None,
+                        source_category: Optional[str] = None) -> int:
+        """Add a new target group or channel.
+        Если категория не передана а keyword известен — пробуем определить категорию через keyword_pool."""
+        if source_keyword and not source_category:
+            source_category = self.get_category_for_keyword(source_keyword)
+
         conn = self.get_connection()
         cursor = conn.cursor()
-
         try:
             cursor.execute('''
                 INSERT INTO target_groups (telegram_group_id, title, username, description,
-                                          members_count, is_channel, linked_chat_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                                          members_count, is_channel, linked_chat_id,
+                                          source_keyword, source_category)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (telegram_group_id, title, username, description, members_count,
-                  1 if is_channel else 0, linked_chat_id))
+                  1 if is_channel else 0, linked_chat_id, source_keyword, source_category))
             conn.commit()
-            group_id = cursor.lastrowid
-            return group_id
+            return cursor.lastrowid
         except sqlite3.IntegrityError:
+            # Группа уже есть — обновим source_keyword/category если они ещё не заполнены
+            if source_keyword or source_category:
+                try:
+                    cursor.execute('''
+                        UPDATE target_groups
+                        SET source_keyword = COALESCE(source_keyword, ?),
+                            source_category = COALESCE(source_category, ?)
+                        WHERE telegram_group_id = ?
+                    ''', (source_keyword, source_category, telegram_group_id))
+                    conn.commit()
+                except Exception:
+                    pass
             return -1
         finally:
             conn.close()
+
+    def get_category_for_keyword(self, keyword: str) -> Optional[str]:
+        """Возвращает категорию из keyword_pool для заданного слова, или None."""
+        if not keyword:
+            return None
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT category FROM keyword_pool WHERE keyword = ? LIMIT 1", (keyword.strip(),))
+        row = cur.fetchone()
+        conn.close()
+        return row[0] if row else None
 
     def get_groups_by_statuses(self, statuses: List[str], limit: int = 200) -> List[Dict]:
         """Получает группы по нескольким статусам сразу (например ['joined','active'])."""

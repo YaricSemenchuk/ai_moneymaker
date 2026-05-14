@@ -401,10 +401,25 @@ def groups_page():
     return render_template('groups.html')
 
 
+@app.route('/api/groups/categories')
+def api_groups_categories():
+    """Список категорий с количеством групп (для фильтра в UI)."""
+    conn = get_db_connection()
+    rows = conn.execute("""
+        SELECT COALESCE(source_category, '') as category, COUNT(*) as cnt
+        FROM target_groups
+        GROUP BY COALESCE(source_category, '')
+        ORDER BY cnt DESC
+    """).fetchall()
+    conn.close()
+    return jsonify([{"category": r["category"] or None, "count": r["cnt"]} for r in rows])
+
+
 @app.route('/api/groups')
 def api_groups():
     """API: список всех групп с фильтрами."""
     status_filter = request.args.get('status', 'all')
+    category_filter = (request.args.get('category') or '').strip()
     conn = get_db_connection()
 
     base_sql = """
@@ -425,10 +440,17 @@ def api_groups():
         FROM target_groups g
         LEFT JOIN interactions i ON g.id = i.group_id
     """
-    if status_filter == 'all':
-        rows = conn.execute(base_sql + " GROUP BY g.id ORDER BY g.added_at DESC").fetchall()
-    else:
-        rows = conn.execute(base_sql + " WHERE g.status = ? GROUP BY g.id ORDER BY g.added_at DESC", (status_filter,)).fetchall()
+    where = []
+    params = []
+    if status_filter != 'all':
+        where.append("g.status = ?"); params.append(status_filter)
+    if category_filter:
+        if category_filter == '__none__':
+            where.append("g.source_category IS NULL")
+        else:
+            where.append("g.source_category = ?"); params.append(category_filter)
+    where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+    rows = conn.execute(base_sql + where_sql + " GROUP BY g.id ORDER BY g.added_at DESC", tuple(params)).fetchall()
 
     conn.close()
 
@@ -452,6 +474,8 @@ def api_groups():
             "is_channel": bool(d.get("is_channel") or 0),
             "linked_chat_id": d.get("linked_chat_id"),
             "assigned_agent_id": d.get("assigned_agent_id"),
+            "source_keyword": d.get("source_keyword"),
+            "source_category": d.get("source_category"),
         })
     return jsonify(result)
 

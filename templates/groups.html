@@ -203,6 +203,13 @@
         <button onclick="filterByType('group')" class="type-btn px-3 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm">👥 Группы</button>
         <button onclick="filterByType('channel')" class="type-btn px-3 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm">📢 Каналы</button>
 
+        <span class="border-l border-gray-300 mx-2 h-6"></span>
+
+        <label class="text-sm text-gray-600">Категория:</label>
+        <select id="category-filter" onchange="filterByCategory(this.value)" class="px-3 py-2 text-sm">
+            <option value="">Все</option>
+        </select>
+
         <div class="ml-auto">
             <input type="text" id="search-input" placeholder="🔍 Поиск группы..."
                    class="px-4 py-2 border rounded-lg text-sm w-64"
@@ -262,11 +269,33 @@
 let allGroups = [];
 let currentFilter = 'all';
 let currentTypeFilter = 'all';  // 'all' | 'group' | 'channel'
+let currentCategory = '';        // '' | '<cat>' | '__none__'
 let searchQuery = '';
+
+async function loadCategories() {
+    try {
+        const res = await fetch('/api/groups/categories');
+        const cats = await res.json();
+        const sel = document.getElementById('category-filter');
+        const total = cats.reduce((s, c) => s + c.count, 0);
+        const without = cats.find(c => !c.category);
+        const named = cats.filter(c => c.category).sort((a,b) => a.category.localeCompare(b.category));
+        sel.innerHTML = `<option value="">Все · ${total}</option>` +
+            named.map(c => `<option value="${escapeHtml(c.category)}" ${currentCategory===c.category?'selected':''}>${escapeHtml(c.category)} · ${c.count}</option>`).join('') +
+            (without && without.count > 0 ? `<option value="__none__" ${currentCategory==='__none__'?'selected':''}>— без категории · ${without.count}</option>` : '');
+    } catch (err) { console.error('cats err', err); }
+}
+
+function filterByCategory(cat) {
+    currentCategory = cat || '';
+    loadGroups();
+}
 
 async function loadGroups() {
     try {
-        const res = await fetch(`/api/groups?status=${currentFilter}`);
+        const qs = new URLSearchParams({ status: currentFilter });
+        if (currentCategory) qs.set('category', currentCategory);
+        const res = await fetch(`/api/groups?${qs}`);
         allGroups = await res.json();
         renderGroups();
     } catch (err) {
@@ -317,8 +346,10 @@ function renderGroups() {
                         : '<span class="inline-block bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase">👥 Группа</span>'
                     }
                     <span class="font-semibold text-gray-900">${escapeHtml(g.title)}</span>
+                    ${g.source_category ? `<span class="ml-1 inline-block bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase">${escapeHtml(g.source_category)}</span>` : ''}
                 </div>
                 ${g.description ? `<div class="text-xs text-gray-500 truncate max-w-xs mt-1">${escapeHtml(g.description.substring(0, 60))}</div>` : ''}
+                ${g.source_keyword ? `<div class="text-[10px] text-gray-400 mt-1">← «${escapeHtml(g.source_keyword)}»</div>` : ''}
             </td>
             <td class="px-6 py-4" data-label="Username">
                 ${g.username
@@ -789,7 +820,8 @@ async function runReactions() {
 }
 
 // Initial load
+loadCategories();
 loadGroups();
-setInterval(loadGroups, 30000);
+setInterval(() => { loadCategories(); loadGroups(); }, 30000);
 </script>
 {% endblock %}

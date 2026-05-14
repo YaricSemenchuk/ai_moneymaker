@@ -81,10 +81,11 @@ class ScoutingModule:
                             if not group_info["username"]:
                                 continue
 
+                            group_info["matched_keyword"] = keyword
                             found_groups.append(group_info)
                             chats_found += 1
                             kind = "📢 Channel" if is_broadcast else "👥 Group"
-                            logger.debug(f"  {kind}: {group_info['title']} (@{group_info['username']})")
+                            logger.debug(f"  {kind}: {group_info['title']} (@{group_info['username']}) ← '{keyword}'")
 
                         elif isinstance(chat, types.Chat):
                             # Это обычная группа
@@ -171,6 +172,8 @@ class ScoutingModule:
                 members_count=group_info.get("members_count"),
                 is_channel=is_channel,
                 linked_chat_id=group_info.get("linked_chat_id"),
+                source_keyword=group_info.get("matched_keyword"),
+                source_category=group_info.get("matched_category"),
             )
 
             if group_id > 0:
