@@ -1277,8 +1277,8 @@ def api_search_groups():
     if not keywords:
         return jsonify({"success": False, "error": "Не нашли ни одного валидного слова"}), 400
 
-    if len(keywords) > 20:
-        return jsonify({"success": False, "error": "Максимум 20 ключевых слов за раз"}), 400
+    if len(keywords) > 100:
+        return jsonify({"success": False, "error": "Максимум 100 ключевых слов за раз"}), 400
 
     if max_results < 1 or max_results > 50:
         max_results = 10

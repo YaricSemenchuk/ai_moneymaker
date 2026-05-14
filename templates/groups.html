@@ -117,7 +117,7 @@
                       rows="4"
                       placeholder="заработок, криптовалюта, фриланс&#10;удалённая работа&#10;earn money"
                       class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"></textarea>
-            <p class="text-xs text-gray-400 mt-1">Разделяй запятой или новой строкой. Максимум 20 слов за запрос.</p>
+            <p class="text-xs text-gray-400 mt-1">Разделяй запятой или новой строкой. Максимум 100 слов за запрос.</p>
         </div>
 
         <div class="mb-4">
@@ -592,8 +592,8 @@ function onSearchCategoryChange() {
     const cat = document.getElementById('search-category-select').value;
     if (!cat) return;  // ручной ввод, не трогаем textarea
     const kws = _searchCategoryPool[cat] || [];
-    // Telegram ограничение ~20 слов за запрос — берём первые 20 случайно
-    const shuffled = kws.slice().sort(() => Math.random() - 0.5).slice(0, 20);
+    // Лимит 100 слов за запрос — если в категории больше, берём первые 100 случайно
+    const shuffled = kws.slice().sort(() => Math.random() - 0.5).slice(0, 100);
     document.getElementById('search-keywords-input').value = shuffled.join(', ');
 }
 
