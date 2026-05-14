@@ -35,13 +35,13 @@ async def main():
 
     # достаём группу прямым SQL — нет универсального getter'а по id
     conn = db.get_connection(); cur = conn.cursor()
-    cur.execute("SELECT id, telegram_id, title, username, status FROM target_groups WHERE id=?", (args.group_id,))
+    cur.execute("SELECT id, telegram_group_id, title, username, status FROM target_groups WHERE id=?", (args.group_id,))
     row = cur.fetchone(); conn.close()
     if not row:
         logger.error(f"group {args.group_id} not found"); return 1
-    grp = {'id': row[0], 'telegram_id': row[1], 'title': row[2], 'username': row[3], 'status': row[4]}
+    grp = {'id': row[0], 'telegram_group_id': row[1], 'title': row[2], 'username': row[3], 'status': row[4]}
 
-    chat_ref = grp.get('username') or grp.get('telegram_id') or grp.get('title')
+    chat_ref = grp.get('username') or grp.get('telegram_group_id') or grp.get('title')
     if not chat_ref:
         logger.error(f"group {args.group_id} has no resolvable ref"); return 1
 

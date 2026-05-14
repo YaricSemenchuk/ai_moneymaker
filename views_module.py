@@ -20,8 +20,14 @@ import logging
 import os
 import random
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
+
+try:
+    from zoneinfo import ZoneInfo
+    _KYIV_TZ = ZoneInfo("Europe/Kyiv")
+except Exception:
+    _KYIV_TZ = timezone(timedelta(hours=3))
 
 logger = logging.getLogger("views")
 
@@ -34,7 +40,7 @@ VIEWS_ACTIVE_HOUR_END = int(os.getenv("VIEWS_ACTIVE_HOUR_END", "22"))
 
 
 def _in_active_hours() -> bool:
-    h = datetime.now().hour
+    h = datetime.now(_KYIV_TZ).hour
     return VIEWS_ACTIVE_HOUR_START <= h < VIEWS_ACTIVE_HOUR_END
 
 
