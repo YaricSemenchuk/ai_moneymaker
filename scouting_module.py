@@ -30,10 +30,17 @@ class ScoutingModule:
         Returns:
             Список найденных групп с информацией
         """
+        import asyncio
+        import random
+
         found_groups = []
         seen_ids = set()
 
-        for keyword in keywords:
+        for idx, keyword in enumerate(keywords):
+            # Пауза между словами — без неё Telegram быстро кидает FloodWait
+            if idx > 0:
+                await asyncio.sleep(random.uniform(2.0, 5.0))
+
             try:
                 logger.info(f"Searching groups for keyword: '{keyword}'")
 
@@ -108,8 +115,12 @@ class ScoutingModule:
                 logger.info(f"  → Found {chats_found} groups for '{keyword}'")
 
             except FloodWait as e:
+                # Короткий FloodWait — переждать и продолжить.
+                # Длинный — нет смысла висеть, прерываем весь запрос.
+                if e.value and e.value > 30:
+                    logger.warning(f"FloodWait {e.value}s on '{keyword}' — aborting batch")
+                    raise
                 logger.warning(f"FloodWait: need to wait {e.value} seconds")
-                import asyncio
                 await asyncio.sleep(e.value)
 
             except PyrogramException as e:
