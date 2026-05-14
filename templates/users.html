@@ -191,18 +191,18 @@ function renderUsers() {
                         ? `<a href="https://t.me/${u.username}" target="_blank" onclick="event.stopPropagation()" class="text-xs text-blue-600 hover:underline">@${u.username}</a>`
                         : `<span class="text-xs text-gray-400">id: ${u.telegram_user_id}</span>`}
                 </td>
-                <td class="px-6 py-4 text-center">
+                <td class="px-6 py-4 text-center" data-label="Статус">
                     <span class="badge-${u.status} px-2 py-1 rounded-full text-xs">${u.status}</span>
                 </td>
-                <td class="px-6 py-4 text-right">
+                <td class="px-6 py-4 text-right" data-label="Сообщ.">
                     <span class="font-bold text-blue-600">${u.total_relevant_messages || 0}</span>
-                    <div class="text-xs text-gray-400">в ${u.groups_count || 0} группах</div>
+                    <span class="text-xs text-gray-400">· в ${u.groups_count || 0} гр.</span>
                 </td>
-                <td class="px-6 py-4 text-right">
+                <td class="px-6 py-4 text-right" data-label="Интерес">
                     <span class="font-bold text-${interestColor}-600">${interestPct}%</span>
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-500">${formatDate(u.last_seen_at)}</td>
-                <td class="px-6 py-4 text-sm">
+                <td class="px-6 py-4 text-sm text-gray-500" data-label="Активность">${formatDate(u.last_seen_at)}</td>
+                <td class="px-6 py-4 text-sm" data-label="Группа">
                     ${u.last_group_username
                         ? `<a href="https://t.me/${u.last_group_username}" target="_blank" onclick="event.stopPropagation()" class="text-blue-600 hover:underline">${escapeHtml((u.last_group_title || '').substring(0, 25))}</a>`
                         : `<span class="text-gray-400">${escapeHtml((u.last_group_title || '').substring(0, 25))}</span>`}
