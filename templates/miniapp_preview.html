@@ -2,770 +2,975 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>MoneyMaker — Telegram Mini App preview</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<title>MoneyMaker · Liquid Glass v2</title>
 <style>
-  body { font-family: -apple-system, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif; background:#0b0d12; color:#e7ecf3; }
+/* =============== LIQUID GLASS · HEAVY =============== */
+:root{
+  --bg-base:    #06080f;
+  --ink:        #ffffff;
+  --ink-dim:    rgba(255,255,255,0.72);
+  --ink-mute:   rgba(255,255,255,0.48);
 
-  /* ===== БРЕНДОВАЯ ПАЛИТРА MoneyMaker ===== */
-  :root {
-    --brand-1: #7c3aed;   /* electric violet */
-    --brand-2: #06b6d4;   /* cyan */
-    --money:   #10b981;   /* emerald (деньги) */
-    --gold:    #f59e0b;   /* warning / new */
-    --danger:  #ef4444;
-    --ink:     #0f1422;
-    --ink-2:   #1a2236;
-    --ink-3:   #232d45;
-    --line:    rgba(255,255,255,0.08);
-    --text:    #ffffff;
-    --hint:    #8a93a8;
-    --brand-grad: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);
-    --money-grad: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
-    --gold-grad:  linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
-  }
+  --blue:   #0a84ff;
+  --green:  #30d158;
+  --orange: #ff9f0a;
+  --pink:   #ff375f;
+  --purple: #bf5af2;
+  --cyan:   #64d2ff;
+  --yellow: #ffd60a;
 
-  .phone {
-    width: 360px; height: 740px;
-    border-radius: 44px;
-    background: #000;
-    padding: 11px;
-    box-shadow: 0 30px 70px rgba(0,0,0,0.55), 0 0 0 2px #1a1a1a, inset 0 0 0 2px #2a2a2a;
-    position: relative;
-  }
-  .notch {
-    position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
-    width: 100px; height: 26px; background: #000; border-radius: 0 0 16px 16px; z-index: 10;
-  }
-  .screen {
-    width: 100%; height: 100%;
-    background: var(--ink);
-    border-radius: 33px;
-    overflow: hidden;
-    display: flex; flex-direction: column;
-    color: var(--text); position: relative;
-  }
-  .tg-header {
-    background: var(--ink);
-    padding: 12px 16px 10px;
-    border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; justify-content: space-between;
-    font-size: 14px; position: relative;
-  }
-  .tg-header .title { font-weight: 600; }
-  .tg-header .close, .tg-header .menu { color: #8ab4f8; }
-  .content { flex: 1; overflow-y: auto; padding: 14px 14px 100px; }
-  .content::-webkit-scrollbar { display: none; }
+  --sf: -apple-system, 'SF Pro Display', 'Inter', system-ui, sans-serif;
+}
 
-  .card {
-    background: var(--ink-2);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 14px;
-  }
-  .card-brand {
-    background: var(--brand-grad);
-    border-radius: 16px; padding: 16px;
-    position: relative; overflow: hidden;
-    box-shadow: 0 8px 24px -8px rgba(124,58,237,0.5);
-  }
-  .card-brand::after {
-    content:''; position:absolute; right:-30px; top:-30px;
-    width:120px; height:120px; border-radius:50%;
-    background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
-  }
-  .hint { color: var(--hint); font-size: 12px; }
-  .pill { display:inline-flex; align-items:center; gap:4px; padding: 3px 9px; border-radius: 99px; font-size: 10px; font-weight: 600; }
-  .pill-money  { background: rgba(16,185,129,0.15); color:#34d399; }
-  .pill-gold   { background: rgba(245,158,11,0.15); color:#fbbf24; }
-  .pill-danger { background: rgba(239,68,68,0.15);  color:#f87171; }
-  .pill-brand  { background: rgba(124,58,237,0.18); color:#a78bfa; }
-  .pill-cyan   { background: rgba(6,182,212,0.15);  color:#22d3ee; }
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+body{
+  font-family: var(--sf);
+  background: #02030a;
+  color: var(--ink);
+  min-height: 100vh;
+  padding: 40px 30px 80px;
+  letter-spacing: -0.01em;
+  /* Жирный, насыщенный wallpaper страницы */
+  background-image:
+    radial-gradient(circle at 8% 10%,   rgba(10,132,255,0.35)  0%, transparent 28%),
+    radial-gradient(circle at 92% 14%,  rgba(255,55,95,0.30)   0%, transparent 30%),
+    radial-gradient(circle at 75% 88%,  rgba(191,90,242,0.35)  0%, transparent 30%),
+    radial-gradient(circle at 18% 80%,  rgba(48,209,88,0.30)   0%, transparent 28%),
+    radial-gradient(circle at 50% 50%,  rgba(255,159,10,0.15)  0%, transparent 50%),
+    #02030a;
+  background-attachment: fixed;
+}
 
-  .tabbar {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: rgba(15,20,34,0.85);
-    backdrop-filter: blur(20px);
-    border-top: 1px solid var(--line);
-    display: grid; grid-template-columns: repeat(6, 1fr);
-    padding: 8px 4px 14px;
-  }
-  .tab { display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10px; color:var(--hint); transition:.2s; }
-  .tab .ico { font-size:18px; }
-  .tab.active { color: transparent; background: var(--brand-grad); -webkit-background-clip: text; background-clip: text; font-weight:600; }
-  .tab.active .ico { filter: drop-shadow(0 0 6px rgba(124,58,237,0.6)); }
+/* =============== Intro =============== */
+.intro{ display:flex; align-items:flex-end; justify-content:space-between; max-width:1500px; margin: 0 auto 56px; gap: 60px;}
+.intro h1{ font-size: 64px; font-weight: 800; line-height: 1.0; letter-spacing: -0.045em; color: #fff; }
+.intro h1 em{ font-style:italic; font-weight:400; color: #fff;
+  background: linear-gradient(135deg, #64d2ff 0%, #bf5af2 50%, #ff375f 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+.intro p{ color: var(--ink-dim); font-size: 16px; line-height: 1.55; max-width: 520px; margin-top: 18px; font-weight: 400;}
+.intro .kicker{
+  font-size: 11px; font-weight: 700; letter-spacing: 0.22em;
+  text-transform: uppercase; color: #fff;
+  display:inline-block; padding: 8px 16px; border-radius: 99px;
+  background: rgba(255,255,255,0.10);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.4),
+    inset 0 -1px 0 rgba(0,0,0,0.3);
+  margin-bottom: 18px;
+}
 
-  .mainbtn {
-    position: absolute; bottom: 76px; left: 14px; right: 14px;
-    background: var(--brand-grad); color: #fff;
-    padding: 14px; border-radius: 14px; text-align: center;
-    font-weight: 700; font-size: 15px; letter-spacing: 0.2px;
-    box-shadow: 0 10px 24px -6px rgba(124,58,237,0.55), 0 2px 0 rgba(255,255,255,0.1) inset;
-  }
-  .mainbtn-money { background: var(--money-grad); box-shadow: 0 10px 24px -6px rgba(16,185,129,0.5); }
+/* =============== Phone =============== */
+.grid{
+  max-width: 1500px; margin: 0 auto;
+  display:grid; grid-template-columns: repeat(3, 1fr); gap: 70px 50px; justify-items: center;
+}
+.phone{
+  width: 380px; height: 800px;
+  border-radius: 58px;
+  background: #0a0a0a;
+  padding: 6px;
+  box-shadow:
+    0 80px 160px -30px rgba(0,0,0,0.95),
+    0 0 0 2px #1a1a1a,
+    0 0 0 9px #050505,
+    inset 0 0 0 1px rgba(255,255,255,0.04);
+  position: relative;
+}
+.screen{
+  width: 100%; height: 100%;
+  border-radius: 52px;
+  overflow: hidden;
+  position: relative;
+  background: #000;
+}
 
-  .bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
-  .bar > span { display:block; height:100%; border-radius:4px; }
+/* ===== Очень насыщенный wallpaper позади glass — он играет роль обоев iPhone ===== */
+.wp{
+  position:absolute; inset:0;
+  filter: saturate(110%) brightness(0.55) contrast(1.05);
+}
+.wp::before, .wp::after{ content:''; position:absolute; inset:0; }
 
-  .avatar {
-    width:40px; height:40px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center;
-    font-weight:700; color:#fff; font-size:15px;
-  }
+.wp.w1{ background:
+  radial-gradient(circle at 18% 8%,  #2da6ff 0%, transparent 50%),
+  radial-gradient(circle at 92% 18%, #ff4d77 0%, transparent 52%),
+  radial-gradient(circle at 50% 55%, #d36bff 0%, transparent 58%),
+  radial-gradient(circle at 18% 92%, #4fe376 0%, transparent 52%),
+  radial-gradient(circle at 85% 88%, #ffb02e 0%, transparent 52%),
+  #0a0820;
+}
+.wp.w2{ background:
+  radial-gradient(circle at 78% 8%,  #4fe88a 0%, transparent 52%),
+  radial-gradient(circle at 12% 28%, #2da6ff 0%, transparent 55%),
+  radial-gradient(circle at 88% 78%, #ffb02e 0%, transparent 55%),
+  radial-gradient(circle at 30% 95%, #7ddcff 0%, transparent 50%),
+  #082010;
+}
+.wp.w3{ background:
+  radial-gradient(circle at 50% 5%,  #d36bff 0%, transparent 58%),
+  radial-gradient(circle at 12% 65%, #7ddcff 0%, transparent 55%),
+  radial-gradient(circle at 90% 60%, #ff4d77 0%, transparent 55%),
+  radial-gradient(circle at 60% 95%, #c465e8 0%, transparent 52%),
+  #1a0820;
+}
+.wp.w4{ background:
+  radial-gradient(circle at 78% 12%, #ffe53c 0%, transparent 50%),
+  radial-gradient(circle at 18% 30%, #4fe376 0%, transparent 55%),
+  radial-gradient(circle at 50% 95%, #2da6ff 0%, transparent 52%),
+  radial-gradient(circle at 92% 78%, #7ddcff 0%, transparent 50%),
+  #0a1c0a;
+}
+.wp.w5{ background:
+  radial-gradient(circle at 85% 8%,  #ff4d77 0%, transparent 52%),
+  radial-gradient(circle at 8% 48%,  #ffb02e 0%, transparent 55%),
+  radial-gradient(circle at 60% 90%, #d36bff 0%, transparent 55%),
+  radial-gradient(circle at 25% 85%, #ffe53c 0%, transparent 45%),
+  #20060a;
+}
+.wp.w6{ background:
+  radial-gradient(circle at 25% 12%, #7ddcff 0%, transparent 58%),
+  radial-gradient(circle at 92% 50%, #4fe88a 0%, transparent 52%),
+  radial-gradient(circle at 40% 92%, #2da6ff 0%, transparent 55%),
+  radial-gradient(circle at 80% 92%, #5ac8fa 0%, transparent 50%),
+  #08142a;
+}
 
-  .seg { background: var(--ink-2); border:1px solid var(--line); border-radius:12px; padding:3px; display:inline-flex; font-size:12px; }
-  .seg > div { padding:6px 11px; border-radius:9px; color:var(--hint); white-space:nowrap; }
-  .seg > div.on { background: var(--brand-grad); color:#fff; font-weight:600; }
+.dynamic-island{
+  position:absolute; top:12px; left:50%; transform:translateX(-50%);
+  width: 122px; height: 32px; background:#000; border-radius: 99px; z-index: 51;
+  box-shadow: 0 0 0 1.5px #1a1a1a, 0 1px 2px rgba(255,255,255,0.04) inset;
+}
+.statusbar{
+  position:relative; z-index: 5;
+  padding: 18px 28px 0;
+  display:flex; justify-content:space-between; align-items:center;
+  font-size: 14px; font-weight: 700; color:#fff;
+}
+.statusbar .right{ display:flex; gap:6px; align-items:center; }
+.signal{ display:flex; gap:2px; }
+.signal i{ display:block; width:3px; background:#fff; border-radius:1px; }
+.signal i:nth-child(1){height:4px;} .signal i:nth-child(2){height:6px;}
+.signal i:nth-child(3){height:8px;} .signal i:nth-child(4){height:10px;}
+.battery{ width:26px; height:12px; border:1.2px solid rgba(255,255,255,0.6); border-radius:3px; position:relative; padding:1px; }
+.battery::after{ content:''; position:absolute; right:-3px; top:3px; width:2px; height:6px; background:rgba(255,255,255,0.6); border-radius:0 1px 1px 0; }
+.battery i{ display:block; width:80%; height:100%; background:#fff; border-radius:1px; }
 
-  .logo-mark {
-    width: 28px; height: 28px; border-radius: 8px;
-    background: var(--brand-grad);
-    display:inline-flex; align-items:center; justify-content:center;
-    font-weight:800; font-size:14px;
-    box-shadow: 0 4px 12px -2px rgba(124,58,237,0.5);
-  }
+/* ===================================================================
+   🔥 HEAVY LIQUID GLASS — главный компонент
+   Структура: light fill (8-14% white) + жирный outer shadow + двойная
+   inset обводка (top highlight + bottom shadow) + verticale gloss слой
+   ===================================================================*/
+.glass{
+  position:relative;
+  background:
+    /* верхний влажный блик через прозрачную плёнку */
+    linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.04) 18%, rgba(255,255,255,0.0) 50%, rgba(255,255,255,0.06) 90%, rgba(255,255,255,0.12) 100%),
+    /* основной полупрозрачный fill */
+    rgba(255,255,255,0.08);
+  backdrop-filter: blur(50px) saturate(160%) brightness(0.95);
+  -webkit-backdrop-filter: blur(50px) saturate(160%) brightness(0.95);
+  border-radius: 26px;
+  box-shadow:
+    /* двойная граница: яркий верх / тёмный низ */
+    inset 0 1.5px 0 rgba(255,255,255,0.5),
+    inset 0 0 0 1px rgba(255,255,255,0.18),
+    inset 0 -2px 0 rgba(0,0,0,0.25),
+    /* внешняя глубокая тень */
+    0 30px 60px -20px rgba(0,0,0,0.7),
+    0 8px 24px -8px rgba(0,0,0,0.5);
+}
+/* Спекулярный hot-spot — главный «жидкий» блик */
+.glass::before{
+  content:''; position:absolute; inset:0; border-radius: inherit; pointer-events:none;
+  background:
+    radial-gradient(ellipse 60% 35% at 30% -10%, rgba(255,255,255,0.55), transparent 60%),
+    radial-gradient(ellipse 80% 30% at 50% 110%, rgba(255,255,255,0.10), transparent 70%);
+  mix-blend-mode: screen;
+}
+/* Хроматическая дисперсия по контуру — цветной ободок как у настоящего стекла */
+.glass::after{
+  content:''; position:absolute; inset:-1px; border-radius: inherit; pointer-events:none;
+  padding: 1px;
+  background: conic-gradient(from 200deg, rgba(100,210,255,0.45), rgba(191,90,242,0.4), rgba(255,55,95,0.4), rgba(255,213,10,0.35), rgba(48,209,88,0.45), rgba(100,210,255,0.45));
+  -webkit-mask: linear-gradient(#fff,#fff) content-box, linear-gradient(#fff,#fff);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0.6;
+}
 
-  .glow-dot { width:6px; height:6px; border-radius:50%; background: var(--money); box-shadow: 0 0 8px var(--money); display:inline-block; }
+.content{
+  position:relative; z-index:5;
+  padding: 56px 18px 130px;
+  height:100%; overflow-y:auto;
+}
+.content::-webkit-scrollbar{ display:none; }
 
-  h1.brand { font-size:28px; font-weight:800; letter-spacing:-0.5px; background: var(--brand-grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .phone-label { text-align:center; margin-top:14px; font-size:13px; color:var(--hint); font-weight:600; }
-  .phone-label b { color:#fff; }
+.large-title{ font-size: 36px; font-weight: 800; letter-spacing: -0.035em; margin-bottom: 18px; line-height: 1.0;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.4);
+}
+.large-title .sub{ display:block; font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.85); margin-top: 6px; letter-spacing: -0.01em;}
+.section-hd{ font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.10em; margin: 12px 4px 10px; text-shadow: 0 1px 4px rgba(0,0,0,0.3); }
 
-  /* sparkline */
-  .spark { height: 40px; width: 100%; }
+/* ===== Capsule (тоже liquid glass) ===== */
+.cap{
+  display:inline-flex; align-items:center; gap:5px;
+  padding: 5px 12px; border-radius: 99px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.25), rgba(255,255,255,0.06)),
+    rgba(255,255,255,0.10);
+  color:#fff;
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.4),
+    inset 0 0 0 0.5px rgba(255,255,255,0.25),
+    inset 0 -1px 0 rgba(0,0,0,0.2),
+    0 4px 10px rgba(0,0,0,0.25);
+}
+.cap.blue   { background: linear-gradient(180deg, rgba(10,132,255,0.55), rgba(10,132,255,0.25)); }
+.cap.green  { background: linear-gradient(180deg, rgba(48,209,88,0.55),  rgba(48,209,88,0.25)); }
+.cap.orange { background: linear-gradient(180deg, rgba(255,159,10,0.6),  rgba(255,159,10,0.25)); }
+.cap.pink   { background: linear-gradient(180deg, rgba(255,55,95,0.6),   rgba(255,55,95,0.25)); }
+.cap.purple { background: linear-gradient(180deg, rgba(191,90,242,0.55), rgba(191,90,242,0.25)); }
+.cap.cyan   { background: linear-gradient(180deg, rgba(100,210,255,0.55),rgba(100,210,255,0.25)); }
+
+/* ===== Segmented control — толстый glass ===== */
+.seg{
+  display:inline-flex;
+  padding: 4px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.04));
+  border-radius: 14px;
+  backdrop-filter: blur(30px) saturate(180%);
+  font-size: 13px; font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.35),
+    inset 0 0 0 0.5px rgba(255,255,255,0.2),
+    inset 0 -1px 0 rgba(0,0,0,0.25);
+}
+.seg > div{
+  padding: 8px 14px; border-radius: 10px;
+  color: rgba(255,255,255,0.7);
+  white-space:nowrap; transition: .2s;
+}
+.seg > div.on{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0.15));
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 0 0 0.5px rgba(255,255,255,0.3),
+    0 2px 6px rgba(0,0,0,0.25);
+}
+
+.num{ font-feature-settings: "tnum" 1; font-weight: 800; letter-spacing: -0.035em; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+
+/* ===== Avatars (тоже немного glass) ===== */
+.avatar{
+  width: 42px; height: 42px; border-radius: 50%;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-weight: 800; font-size: 15px; color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.45),
+    inset 0 0 0 0.5px rgba(255,255,255,0.2),
+    0 6px 14px rgba(0,0,0,0.35);
+}
+.av-blue   { background: linear-gradient(135deg, #5ac8fa 0%, #007aff 80%); }
+.av-green  { background: linear-gradient(135deg, #34e670 0%, #28a745 80%); }
+.av-pink   { background: linear-gradient(135deg, #ff6b9d 0%, #ff375f 80%); }
+.av-orange { background: linear-gradient(135deg, #ffcf6b 0%, #ff9f0a 80%); }
+.av-purple { background: linear-gradient(135deg, #e08aff 0%, #af52de 80%); }
+.av-cyan   { background: linear-gradient(135deg, #9fe5ff 0%, #5ac8fa 80%); }
+
+/* ===== Floating Tab Bar — heavy glass ===== */
+.tabbar{
+  position:absolute; bottom: 22px; left: 18px; right: 18px;
+  height: 70px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 35%, rgba(255,255,255,0.0) 65%, rgba(255,255,255,0.05) 100%),
+    rgba(20,22,32,0.45);
+  backdrop-filter: blur(50px) saturate(160%) brightness(0.95);
+  -webkit-backdrop-filter: blur(50px) saturate(160%) brightness(0.95);
+  border-radius: 35px;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.5),
+    inset 0 0 0 1px rgba(255,255,255,0.20),
+    inset 0 -1.5px 0 rgba(0,0,0,0.35),
+    0 25px 50px -10px rgba(0,0,0,0.7);
+  z-index: 40;
+  display:grid; grid-template-columns: repeat(6, 1fr);
+  padding: 9px;
+}
+.tabbar::before{
+  content:''; position:absolute; inset:0; border-radius: inherit; pointer-events:none;
+  background: radial-gradient(ellipse 80% 40% at 50% -10%, rgba(255,255,255,0.3), transparent 60%);
+}
+.tab{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 3px;
+  font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.65);
+  border-radius: 26px;
+  transition: .2s;
+  position: relative;
+}
+.tab svg{ width: 22px; height: 22px; }
+.tab.active{
+  color: #fff;
+  background: linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0.10));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    inset 0 0 0 0.5px rgba(255,255,255,0.25),
+    0 4px 12px rgba(0,0,0,0.25);
+}
+
+/* ===== CTA — мощный glass button ===== */
+.cta{
+  position:absolute; bottom: 108px; left: 18px; right: 18px;
+  padding: 18px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0.10));
+  color: #fff;
+  font-size: 17px; font-weight: 700; letter-spacing: -0.01em; text-align: center;
+  backdrop-filter: blur(40px) saturate(180%);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.6),
+    inset 0 0 0 0.5px rgba(255,255,255,0.3),
+    inset 0 -1px 0 rgba(0,0,0,0.2),
+    0 20px 40px -10px rgba(0,0,0,0.5);
+  z-index: 39;
+}
+.cta.accent{
+  background:
+    linear-gradient(180deg, rgba(94,170,255,0.85), rgba(10,132,255,0.7));
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.55),
+    inset 0 0 0 0.5px rgba(255,255,255,0.3),
+    inset 0 -1px 0 rgba(0,0,0,0.25),
+    0 20px 40px -8px rgba(10,132,255,0.55);
+}
+.cta.green{
+  background:
+    linear-gradient(180deg, rgba(94,230,140,0.85), rgba(48,209,88,0.7));
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.6),
+    inset 0 0 0 0.5px rgba(255,255,255,0.3),
+    inset 0 -1px 0 rgba(0,0,0,0.25),
+    0 20px 40px -8px rgba(48,209,88,0.55);
+}
+
+.bar{ height:8px; border-radius:99px; background: rgba(0,0,0,0.25); overflow:hidden;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.4);
+}
+.bar span{ display:block; height:100%; border-radius:99px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.spark{ height: 64px; width: 100%; filter: drop-shadow(0 4px 10px rgba(100,210,255,0.4)); }
+
+.caption{
+  text-align:center; margin-top:24px;
+  font-size:15px; font-weight:700; letter-spacing:-0.01em; color:#fff;
+}
+.caption span{ display:block; font-size:12px; font-weight:500; color: rgba(255,255,255,0.6); margin-top:4px; }
+.caption b{
+  display:inline-flex; align-items:center; justify-content:center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(255,255,255,0.12); backdrop-filter: blur(20px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), inset 0 0 0 0.5px rgba(255,255,255,0.15);
+  font-size: 10px; font-weight:800; margin-right:8px;
+  color: var(--cyan);
+}
+
 </style>
 </head>
-<body class="min-h-screen p-10">
+<body>
 
-<div class="max-w-[1500px] mx-auto">
-  <div class="mb-8">
-    <div class="flex items-center gap-3 mb-2">
-      <div class="logo-mark">M</div>
-      <h1 class="brand">MoneyMaker AI · Mini App</h1>
+<!-- ===== Intro ===== -->
+<div class="intro">
+  <div style="flex:1;">
+    <span class="kicker">★ Liquid Glass · v2 · Heavy</span>
+    <h1>MoneyMaker.<br><em>Real glass.</em></h1>
+    <p>Усиленный материал: 60-пиксельный блюр + 200% saturation, двойная inset-обводка (верхний влажный блик + тёмная нижняя грань), хроматический ободок по контуру как у настоящего стекла, спекулярный hot-spot сверху, тяжёлая внешняя тень. Цветные обои просвечивают агрессивно.</p>
+  </div>
+</div>
+
+<!-- ===== Phones ===== -->
+<div class="grid">
+
+  <!-- ====== TAB 1: ДАШБОРД ====== -->
+  <div>
+  <div class="phone"><div class="screen">
+    <div class="wp w1"></div>
+    <div class="dynamic-island"></div>
+    <div class="statusbar"><span>9:41</span><span class="right"><span class="signal"><i></i><i></i><i></i><i></i></span><span style="font-size:11px;">5G</span><span class="battery"><i></i></span></span></div>
+    <div class="content">
+      <div class="large-title">Главная<span class="sub">Доброе утро, Ярик</span></div>
+
+      <!-- Hero -->
+      <div class="glass" style="padding:22px; margin-bottom: 14px;">
+        <div style="position:relative; z-index:2;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="font-size:12px; font-weight:700; color: rgba(255,255,255,0.8); text-transform:uppercase; letter-spacing:0.10em;">Сегодня</div>
+              <div style="font-size:48px; line-height:1; margin-top:10px; color:#fff;" class="num">$1,247<span style="font-size:24px; color: rgba(255,255,255,0.6);">.50</span></div>
+              <div style="margin-top:12px; display:flex; align-items:center; gap:6px; font-size:14px; color: #b3ffce; font-weight:700;">
+                <svg width="14" height="14" viewBox="0 0 12 12" fill="currentColor"><path d="M6 2 L10 8 L2 8 Z"/></svg>
+                +18.4% за неделю
+              </div>
+            </div>
+            <span class="cap green"><span style="width:6px; height:6px; border-radius:50%; background:#b3ffce; box-shadow:0 0 8px #b3ffce;"></span>live</span>
+          </div>
+          <svg class="spark" viewBox="0 0 300 60" preserveAspectRatio="none" style="margin-top:14px;">
+            <path d="M0,50 C20,48 30,38 50,40 C70,42 80,28 100,30 C120,32 140,18 160,22 C180,26 200,12 220,14 C240,16 260,6 280,8 L300,4" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- KPI 2x2 -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:14px;">
+        <div class="glass" style="padding:14px;">
+          <div style="position:relative; z-index:2;">
+            <div style="font-size:11px; color:rgba(255,255,255,0.75); font-weight:700; letter-spacing:0.05em;">ГРУППЫ</div>
+            <div style="font-size:30px; margin-top:6px;" class="num">282</div>
+            <div style="font-size:11px; color:#b3ffce; font-weight:700; margin-top:2px;">↗ 18</div>
+          </div>
+        </div>
+        <div class="glass" style="padding:14px;">
+          <div style="position:relative; z-index:2;">
+            <div style="font-size:11px; color:rgba(255,255,255,0.75); font-weight:700; letter-spacing:0.05em;">СООБЩЕНИЯ</div>
+            <div style="font-size:30px; margin-top:6px;" class="num">8,932</div>
+            <div style="font-size:11px; color:#b3ffce; font-weight:700; margin-top:2px;">↗ 312</div>
+          </div>
+        </div>
+        <div class="glass" style="padding:14px;">
+          <div style="position:relative; z-index:2;">
+            <div style="font-size:11px; color:rgba(255,255,255,0.75); font-weight:700; letter-spacing:0.05em;">ЛИДЫ</div>
+            <div style="font-size:30px; margin-top:6px; color:#ffd9a0;" class="num">612</div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.6); font-weight:600; margin-top:2px;">conv 6.8%</div>
+          </div>
+        </div>
+        <div class="glass" style="padding:14px;">
+          <div style="position:relative; z-index:2;">
+            <div style="font-size:11px; color:rgba(255,255,255,0.75); font-weight:700; letter-spacing:0.05em;">REPLY RATE</div>
+            <div style="font-size:30px; margin-top:6px; color:#dcb8ff;" class="num">23.4<span style="font-size:18px;">%</span></div>
+            <div style="font-size:11px; color:#b3ffce; font-weight:700; margin-top:2px;">↗ 2.1%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="section-hd">Статусы групп</div>
+      <div class="glass" style="padding:16px;">
+        <div style="position:relative; z-index:2;">
+          <div style="margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; font-weight:600;">
+              <span>Joined</span><span class="num">230</span>
+            </div>
+            <div class="bar"><span style="width:82%; background: linear-gradient(90deg, #5ac8fa, #0a84ff);"></span></div>
+          </div>
+          <div style="margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; font-weight:600;">
+              <span>Active</span><span class="num" style="color:#b3ffce;">15</span>
+            </div>
+            <div class="bar"><span style="width:5%; background: linear-gradient(90deg, #34e670, #30d158);"></span></div>
+          </div>
+          <div>
+            <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; font-weight:600;">
+              <span>Banned</span><span class="num" style="color:#ffb3c5;">7</span>
+            </div>
+            <div class="bar"><span style="width:3%; background: linear-gradient(90deg, #ff6b9d, #ff375f);"></span></div>
+          </div>
+        </div>
+      </div>
     </div>
-    <p class="text-sm" style="color:var(--hint)">Тёмная брендовая палитра • градиент violet→cyan для интерактива • emerald для денег/успеха • amber для новых лидов</p>
+    <div class="cta accent">Запустить агента</div>
+    <div class="tabbar">
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v8H3zm4-4h2v12H7zm4-6h2v18h-2zm4 4h2v14h-2zm4 8h2v6h-2z"/></svg>Главная</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5v1H3zm14 0c0-2 2-4 4-4v5h-4z"/></svg>Группы</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H7l-3 3z"/></svg>Чаты</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7z"/></svg>Лиды</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 14h6l-2 8 10-13h-6z"/></svg>Посты</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="6" width="14" height="12" rx="3"/><circle cx="9" cy="11" r="1.3" fill="#000"/><circle cx="15" cy="11" r="1.3" fill="#000"/></svg>Агенты</div>
+    </div>
+  </div></div>
+  <div class="caption"><b>I</b>Главная<span>KPI · баланс · live-активность</span></div>
   </div>
 
-  <div class="grid grid-cols-3 gap-x-8 gap-y-12 justify-items-center">
+  <!-- ====== TAB 2: ГРУППЫ ====== -->
+  <div>
+  <div class="phone"><div class="screen">
+    <div class="wp w2"></div>
+    <div class="dynamic-island"></div>
+    <div class="statusbar"><span>9:41</span><span class="right"><span class="signal"><i></i><i></i><i></i><i></i></span><span style="font-size:11px;">5G</span><span class="battery"><i></i></span></span></div>
+    <div class="content">
+      <div class="large-title">Группы<span class="sub">282 в коллекции</span></div>
 
-    <!-- ====================== TAB 1: ДАШБОРД ====================== -->
-    <div>
-    <div class="phone">
-      <div class="notch"></div>
-      <div class="screen">
-        <div class="tg-header">
-          <span class="close">‹ Закрыть</span>
-          <div class="flex items-center gap-2">
-            <div class="logo-mark" style="width:22px;height:22px;font-size:11px">M</div>
-            <span class="title">MoneyMaker AI</span>
-          </div>
-          <span class="menu">⋯</span>
-        </div>
-        <div class="content">
-          <!-- Hero brand card -->
-          <div class="card-brand mb-3">
-            <div class="flex items-center justify-between mb-3 relative z-10">
-              <div>
-                <div style="font-size:11px; opacity:0.85; text-transform:uppercase; letter-spacing:1px">Сегодня заработано</div>
-                <div style="font-size:32px; font-weight:800; margin-top:2px">$1 247<span style="font-size:18px;opacity:0.7">.50</span></div>
-              </div>
-              <div style="font-size:36px">💰</div>
-            </div>
-            <div class="flex items-center gap-2 relative z-10" style="font-size:12px">
-              <span class="glow-dot"></span>
-              <span>4 агента онлайн · 47 действий за час</span>
-            </div>
-          </div>
+      <div class="seg" style="margin-bottom:14px; display:grid; grid-template-columns: repeat(4,1fr); width:100%;">
+        <div class="on">Все</div>
+        <div>Joined</div>
+        <div>Active</div>
+        <div>Bans</div>
+      </div>
 
-          <!-- KPI grid -->
-          <div class="grid grid-cols-2 gap-2 mb-3">
-            <div class="card">
-              <div class="hint uppercase" style="font-size:10px">Группы</div>
-              <div style="font-size:22px;font-weight:700">1 240</div>
-              <div style="font-size:11px;color:#34d399">+18 за день</div>
-            </div>
-            <div class="card">
-              <div class="hint uppercase" style="font-size:10px">Сообщения</div>
-              <div style="font-size:22px;font-weight:700">8 932</div>
-              <div style="font-size:11px;color:#34d399">+312 за день</div>
-            </div>
-            <div class="card">
-              <div class="hint uppercase" style="font-size:10px">Лиды</div>
-              <div style="font-size:22px;font-weight:700;color:#fbbf24">612</div>
-              <div style="font-size:11px;color:var(--hint)">conv 6.8%</div>
-            </div>
-            <div class="card">
-              <div class="hint uppercase" style="font-size:10px">CTR ответов</div>
-              <div style="font-size:22px;font-weight:700;color:#a78bfa">23.4%</div>
-              <div style="font-size:11px;color:#34d399">↑ 2.1%</div>
-            </div>
+      <div class="glass" style="padding:18px; margin-bottom:14px;">
+        <div style="position:relative; z-index:2; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:12px; color:rgba(255,255,255,0.85); font-weight:700; text-transform:uppercase; letter-spacing:0.08em;">Авто-парсинг</div>
+            <div style="font-size:24px; font-weight:800; margin-top:6px; letter-spacing:-0.03em;">через <span class="num" style="color:#ffd9a0;">2ч 14м</span></div>
           </div>
-
-          <!-- Activity sparkline -->
-          <div class="card mb-3">
-            <div class="flex items-center justify-between mb-2">
-              <div style="font-weight:600;font-size:14px">📈 Активность 24ч</div>
-              <span class="pill pill-brand">live</span>
-            </div>
-            <svg class="spark" viewBox="0 0 300 50" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0" stop-color="#7c3aed" stop-opacity="0.5"/>
-                  <stop offset="1" stop-color="#7c3aed" stop-opacity="0"/>
-                </linearGradient>
-              </defs>
-              <path d="M0,40 L20,35 L40,38 L60,28 L80,30 L100,20 L120,22 L140,15 L160,18 L180,10 L200,14 L220,8 L240,12 L260,6 L280,9 L300,4 L300,50 L0,50 Z" fill="url(#g1)"/>
-              <path d="M0,40 L20,35 L40,38 L60,28 L80,30 L100,20 L120,22 L140,15 L160,18 L180,10 L200,14 L220,8 L240,12 L260,6 L280,9 L300,4" stroke="#a78bfa" stroke-width="2" fill="none"/>
-            </svg>
-          </div>
-
-          <!-- Статусы групп -->
-          <div class="card mb-3">
-            <div style="font-weight:600;font-size:14px;margin-bottom:10px">📊 Статусы групп</div>
-            <div class="space-y-2">
-              <div>
-                <div class="flex justify-between text-xs mb-1"><span>joined</span><span class="hint">770 · 62%</span></div>
-                <div class="bar"><span style="width:62%;background:var(--brand-grad)"></span></div>
-              </div>
-              <div>
-                <div class="flex justify-between text-xs mb-1"><span>active</span><span class="hint">384 · 31%</span></div>
-                <div class="bar"><span style="width:31%;background:var(--money)"></span></div>
-              </div>
-              <div>
-                <div class="flex justify-between text-xs mb-1"><span>banned</span><span class="hint">86 · 7%</span></div>
-                <div class="bar"><span style="width:7%;background:var(--danger)"></span></div>
-              </div>
-            </div>
+          <div style="width:52px; height:52px; border-radius:50%;
+            background: linear-gradient(135deg, rgba(255,159,10,0.7), rgba(255,159,10,0.2));
+            backdrop-filter: blur(20px);
+            display:flex; align-items:center; justify-content:center;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), inset 0 0 0 0.5px rgba(255,255,255,0.3);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
           </div>
         </div>
-        <div class="mainbtn">▶ Запустить всех агентов</div>
-        <div class="tabbar">
-          <div class="tab active"><div class="ico">📊</div>Главная</div>
-          <div class="tab"><div class="ico">👥</div>Группы</div>
-          <div class="tab"><div class="ico">💬</div>Чаты</div>
-          <div class="tab"><div class="ico">👤</div>Лиды</div>
-          <div class="tab"><div class="ico">🚀</div>Посты</div>
-          <div class="tab"><div class="ico">🤖</div>Агенты</div>
+        <div style="position:relative; z-index:2; display:flex; gap:6px; margin-top:14px; flex-wrap:wrap;">
+          <span class="cap orange">crypto</span>
+          <span class="cap orange">brokers</span>
+          <span class="cap">english</span>
+          <span class="cap">freelance</span>
+        </div>
+      </div>
+
+      <div class="glass" style="padding: 6px 0;">
+        <div style="position:relative; z-index:2;">
+          <div style="padding: 14px 16px; display:flex; align-items:center; gap:12px;">
+            <div class="avatar av-blue">З</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:15px;">Заработок 24/7</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7); margin-top:2px;">12.4K · 38 ответов</div>
+            </div>
+            <span class="cap green">active</span>
+          </div>
+          <div style="height:0.5px; background:rgba(255,255,255,0.15); margin:0 16px;"></div>
+          <div style="padding: 14px 16px; display:flex; align-items:center; gap:12px;">
+            <div class="avatar av-green">К</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:15px;">Крипта инсайды UA</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7); margin-top:2px;">8.1K · 22 ответа</div>
+            </div>
+            <span class="cap green">active</span>
+          </div>
+          <div style="height:0.5px; background:rgba(255,255,255,0.15); margin:0 16px;"></div>
+          <div style="padding: 14px 16px; display:flex; align-items:center; gap:12px;">
+            <div class="avatar av-orange">П</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:15px;">Подработка Київ</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7); margin-top:2px;">4.7K · ожидает</div>
+            </div>
+            <span class="cap orange">request</span>
+          </div>
+          <div style="height:0.5px; background:rgba(255,255,255,0.15); margin:0 16px;"></div>
+          <div style="padding: 14px 16px; display:flex; align-items:center; gap:12px;">
+            <div class="avatar av-purple">Ф</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:15px;">Финансы для всех</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7); margin-top:2px;">15.2K · модерация</div>
+            </div>
+            <span class="cap blue">joined</span>
+          </div>
+          <div style="height:0.5px; background:rgba(255,255,255,0.15); margin:0 16px;"></div>
+          <div style="padding: 14px 16px; display:flex; align-items:center; gap:12px; opacity:0.55;">
+            <div class="avatar av-pink">С</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:15px;">Спам каналы</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7); margin-top:2px;">spam · 2 дня</div>
+            </div>
+            <span class="cap pink">banned</span>
+          </div>
         </div>
       </div>
     </div>
-    <div class="phone-label"><b>1 · Главная</b> — KPI, баланс, live-активность</div>
+    <div class="cta">Найти ещё групп</div>
+    <div class="tabbar">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v8H3zm4-4h2v12H7zm4-6h2v18h-2zm4 4h2v14h-2zm4 8h2v6h-2z"/></svg>Главная</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5v1H3zm14 0c0-2 2-4 4-4v5h-4z"/></svg>Группы</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H7l-3 3z"/></svg>Чаты</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7z"/></svg>Лиды</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 14h6l-2 8 10-13h-6z"/></svg>Посты</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="6" width="14" height="12" rx="3"/><circle cx="9" cy="11" r="1.3" fill="#000"/><circle cx="15" cy="11" r="1.3" fill="#000"/></svg>Агенты</div>
     </div>
-
-    <!-- ====================== TAB 2: ГРУППЫ ====================== -->
-    <div>
-    <div class="phone">
-      <div class="notch"></div>
-      <div class="screen">
-        <div class="tg-header">
-          <span class="close">‹</span>
-          <span class="title">Группы · 1 240</span>
-          <span class="menu">🔍</span>
-        </div>
-        <div class="content">
-          <div class="seg mb-3" style="flex-wrap:wrap;gap:2px">
-            <div class="on">Все</div>
-            <div>joined</div>
-            <div>active</div>
-            <div>banned</div>
-          </div>
-
-          <!-- Inline auto-scout widget -->
-          <div class="card mb-3" style="background:linear-gradient(135deg, rgba(124,58,237,0.15), rgba(6,182,212,0.1));border-color:rgba(124,58,237,0.3)">
-            <div class="flex items-center justify-between mb-2">
-              <div style="font-weight:600;font-size:13px">🤖 Авто-парсинг</div>
-              <span class="pill pill-brand">+ категория</span>
-            </div>
-            <div class="hint" style="margin-bottom:8px">Следующий запуск через <b style="color:#fff">2ч 14мин</b></div>
-            <div class="flex flex-wrap gap-1">
-              <span class="pill pill-brand">заработок</span>
-              <span class="pill pill-brand">крипта</span>
-              <span class="pill pill-cyan">подработка</span>
-              <span class="pill pill-cyan">финансы</span>
-            </div>
-          </div>
-
-          <!-- Groups list -->
-          <div class="space-y-2">
-            <div class="card">
-              <div class="flex items-center gap-3">
-                <div class="avatar" style="background:var(--brand-grad)">З</div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">Заработок 24/7</div>
-                  <div class="hint" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">12.4K участников · 38 ответов</div>
-                </div>
-                <span class="pill pill-money">active</span>
-              </div>
-            </div>
-            <div class="card">
-              <div class="flex items-center gap-3">
-                <div class="avatar" style="background:var(--money-grad)">К</div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">Крипта инсайды UA</div>
-                  <div class="hint">8.1K участников · 22 ответа</div>
-                </div>
-                <span class="pill pill-money">active</span>
-              </div>
-            </div>
-            <div class="card">
-              <div class="flex items-center gap-3">
-                <div class="avatar" style="background:var(--gold-grad)">П</div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">Подработка Киев</div>
-                  <div class="hint">4.7K · ожидает заявки</div>
-                </div>
-                <span class="pill pill-gold">request</span>
-              </div>
-            </div>
-            <div class="card">
-              <div class="flex items-center gap-3">
-                <div class="avatar" style="background:linear-gradient(135deg,#06b6d4,#7c3aed)">Ф</div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">Финансы для всех</div>
-                  <div class="hint">15.2K · модерация</div>
-                </div>
-                <span class="pill pill-cyan">joined</span>
-              </div>
-            </div>
-            <div class="card" style="opacity:0.55">
-              <div class="flex items-center gap-3">
-                <div class="avatar" style="background:linear-gradient(135deg,#ef4444,#7c3aed)">С</div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">Спам каналы</div>
-                  <div class="hint">причина: spam · 2 дня назад</div>
-                </div>
-                <span class="pill pill-danger">banned</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="mainbtn">＋ Найти новые группы</div>
-        <div class="tabbar">
-          <div class="tab"><div class="ico">📊</div>Главная</div>
-          <div class="tab active"><div class="ico">👥</div>Группы</div>
-          <div class="tab"><div class="ico">💬</div>Чаты</div>
-          <div class="tab"><div class="ico">👤</div>Лиды</div>
-          <div class="tab"><div class="ico">🚀</div>Посты</div>
-          <div class="tab"><div class="ico">🤖</div>Агенты</div>
-        </div>
-      </div>
-    </div>
-    <div class="phone-label"><b>2 · Группы</b> — фильтры, авто-парсинг, статусы</div>
-    </div>
-
-    <!-- ====================== TAB 3: ЧАТЫ ====================== -->
-    <div>
-    <div class="phone">
-      <div class="notch"></div>
-      <div class="screen">
-        <div class="tg-header">
-          <span class="close">‹</span>
-          <span class="title">Сообщения</span>
-          <span class="menu">⚙︎</span>
-        </div>
-        <div class="content">
-          <div class="seg mb-3">
-            <div class="on">Все</div>
-            <div>Отправленные</div>
-            <div>Ответы</div>
-          </div>
-
-          <div class="space-y-2">
-            <!-- Outgoing -->
-            <div class="card">
-              <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center gap-2">
-                  <div class="avatar" style="width:26px;height:26px;font-size:11px;background:var(--brand-grad)">A1</div>
-                  <span style="font-size:12px;font-weight:600">agent_anna</span>
-                  <span class="hint">→ Заработок 24/7</span>
-                </div>
-                <span class="pill pill-money">sent</span>
-              </div>
-              <div style="font-size:13px;line-height:1.4">Тоже искала способы подзаработать. Попробовала пару заданий на одной платформе — пришло около $40 за вечер 🤔</div>
-              <div class="hint mt-2" style="font-size:11px">2 мин назад · в ответ @alex_crypto</div>
-            </div>
-
-            <!-- Reply -->
-            <div class="card" style="border-left:3px solid var(--money)">
-              <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center gap-2">
-                  <div class="avatar" style="width:26px;height:26px;font-size:11px;background:var(--money-grad)">@</div>
-                  <span style="font-size:12px;font-weight:600">@alex_crypto</span>
-                  <span class="hint">ответил</span>
-                </div>
-                <span class="pill pill-money">reply ✓</span>
-              </div>
-              <div style="font-size:13px;line-height:1.4">а что за платформа? скинь ссылку</div>
-              <div class="hint mt-2" style="font-size:11px">1 мин назад</div>
-            </div>
-
-            <!-- Outgoing 2 -->
-            <div class="card">
-              <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center gap-2">
-                  <div class="avatar" style="width:26px;height:26px;font-size:11px;background:var(--gold-grad)">A2</div>
-                  <span style="font-size:12px;font-weight:600">agent_mike</span>
-                  <span class="hint">→ Крипта инсайды</span>
-                </div>
-                <span class="pill pill-money">sent</span>
-              </div>
-              <div style="font-size:13px;line-height:1.4">Норм инфа, спасибо. Я сам недавно начал с микро-задач, $20-50 в день стабильно выходит</div>
-              <div class="hint mt-2" style="font-size:11px">14 мин назад</div>
-            </div>
-
-            <!-- Failed -->
-            <div class="card" style="border-left:3px solid var(--danger)">
-              <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center gap-2">
-                  <div class="avatar" style="width:26px;height:26px;font-size:11px;background:linear-gradient(135deg,#ef4444,#7c3aed)">A3</div>
-                  <span style="font-size:12px;font-weight:600">agent_olga</span>
-                  <span class="hint">→ Спам каналы</span>
-                </div>
-                <span class="pill pill-danger">slowmode</span>
-              </div>
-              <div style="font-size:13px;line-height:1.4;opacity:0.7">не отправлено — лимит группы 1 сообщение / час</div>
-              <div class="hint mt-2" style="font-size:11px">22 мин назад</div>
-            </div>
-          </div>
-        </div>
-        <div class="tabbar">
-          <div class="tab"><div class="ico">📊</div>Главная</div>
-          <div class="tab"><div class="ico">👥</div>Группы</div>
-          <div class="tab active"><div class="ico">💬</div>Чаты</div>
-          <div class="tab"><div class="ico">👤</div>Лиды</div>
-          <div class="tab"><div class="ico">🚀</div>Посты</div>
-          <div class="tab"><div class="ico">🤖</div>Агенты</div>
-        </div>
-      </div>
-    </div>
-    <div class="phone-label"><b>3 · Чаты</b> — лента отправок и реакций в реальном времени</div>
-    </div>
-
-    <!-- ====================== TAB 4: ЛИДЫ (юзеры) ====================== -->
-    <div>
-    <div class="phone">
-      <div class="notch"></div>
-      <div class="screen">
-        <div class="tg-header">
-          <span class="close">‹</span>
-          <span class="title">Лиды · 612</span>
-          <span class="menu">⌕</span>
-        </div>
-        <div class="content">
-          <!-- Funnel mini -->
-          <div class="card mb-3">
-            <div style="font-weight:600;font-size:13px;margin-bottom:10px">🎯 Воронка</div>
-            <div class="space-y-2">
-              <div>
-                <div class="flex justify-between text-xs mb-1"><span>обнаружены</span><span class="hint">612</span></div>
-                <div class="bar"><span style="width:100%;background:var(--brand-grad)"></span></div>
-              </div>
-              <div>
-                <div class="flex justify-between text-xs mb-1"><span>в работе</span><span class="hint">284</span></div>
-                <div class="bar"><span style="width:46%;background:var(--money-grad)"></span></div>
-              </div>
-              <div>
-                <div class="flex justify-between text-xs mb-1"><span>конверт.</span><span class="hint" style="color:#34d399">42 · 6.8%</span></div>
-                <div class="bar"><span style="width:7%;background:var(--money)"></span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="seg mb-3">
-            <div class="on">Новые</div>
-            <div>В работе</div>
-            <div>✓ Конв.</div>
-          </div>
-
-          <div class="space-y-2">
-            <div class="card">
-              <div class="flex items-center gap-3">
-                <div class="avatar" style="background:var(--gold-grad)">A</div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">@alex_crypto</div>
-                  <div class="hint">«Заработок 24/7» · 12 мин</div>
-                </div>
-                <span class="pill pill-gold">new</span>
-              </div>
-            </div>
-            <div class="card">
-              <div class="flex items-center gap-3">
-                <div class="avatar" style="background:var(--money-grad)">М</div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">@marina_ua</div>
-                  <div class="hint">«Подработка Киев» · 1ч</div>
-                </div>
-                <span class="pill pill-money">replied</span>
-              </div>
-            </div>
-            <div class="card">
-              <div class="flex items-center gap-3">
-                <div class="avatar" style="background:var(--brand-grad)">D</div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">@dmitry_btc</div>
-                  <div class="hint">«Крипта инсайды» · 3ч</div>
-                </div>
-                <span class="pill pill-brand">contacted</span>
-              </div>
-            </div>
-            <div class="card" style="background:linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.08));border-color:rgba(16,185,129,0.3)">
-              <div class="flex items-center gap-3">
-                <div class="avatar" style="background:var(--money-grad)">К</div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">@kate_finance</div>
-                  <div style="font-size:11px;color:#34d399">💰 конверсия · $42</div>
-                </div>
-                <span class="pill pill-money">paid ✓</span>
-              </div>
-            </div>
-            <div class="card">
-              <div class="flex items-center gap-3">
-                <div class="avatar" style="background:linear-gradient(135deg,#06b6d4,#7c3aed)">S</div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">@serge_jobs</div>
-                  <div class="hint">«Работа удалёнка» · 5ч</div>
-                </div>
-                <span class="pill pill-cyan">joined</span>
-              </div>
-            </div>
-          </div>
-          <div class="hint text-center mt-4" style="font-size:11px">↔ Свайп карточки для смены статуса</div>
-        </div>
-        <div class="mainbtn mainbtn-money">＋ Найти ещё лидов</div>
-        <div class="tabbar">
-          <div class="tab"><div class="ico">📊</div>Главная</div>
-          <div class="tab"><div class="ico">👥</div>Группы</div>
-          <div class="tab"><div class="ico">💬</div>Чаты</div>
-          <div class="tab active"><div class="ico">👤</div>Лиды</div>
-          <div class="tab"><div class="ico">🚀</div>Посты</div>
-          <div class="tab"><div class="ico">🤖</div>Агенты</div>
-        </div>
-      </div>
-    </div>
-    <div class="phone-label"><b>4 · Лиды</b> — воронка + свайп-карточки юзеров</div>
-    </div>
-
-    <!-- ====================== TAB 5: ПОСТЫ (проактивные) ====================== -->
-    <div>
-    <div class="phone">
-      <div class="notch"></div>
-      <div class="screen">
-        <div class="tg-header">
-          <span class="close">‹</span>
-          <span class="title">Проактивные посты</span>
-          <span class="menu">＋</span>
-        </div>
-        <div class="content">
-          <!-- Schedule -->
-          <div class="card-brand mb-3" style="background:var(--money-grad);box-shadow:0 8px 24px -8px rgba(16,185,129,0.5)">
-            <div class="flex items-center justify-between relative z-10">
-              <div>
-                <div style="font-size:11px;opacity:0.85;text-transform:uppercase;letter-spacing:1px">Следующий пост</div>
-                <div style="font-size:22px;font-weight:800;margin-top:2px">через 18 минут</div>
-                <div style="font-size:12px;opacity:0.9;margin-top:4px">agent_anna → 3 группы</div>
-              </div>
-              <div style="font-size:36px">🚀</div>
-            </div>
-          </div>
-
-          <div class="seg mb-3">
-            <div class="on">Запланир.</div>
-            <div>Отправлено</div>
-            <div>Шаблоны</div>
-          </div>
-
-          <div class="space-y-2">
-            <div class="card" style="border-left:3px solid var(--gold)">
-              <div class="flex items-center justify-between mb-2">
-                <span class="pill pill-gold">⏱ через 18м</span>
-                <span class="hint" style="font-size:11px">3 группы</span>
-              </div>
-              <div style="font-size:13px;line-height:1.4">Народ, кто-то пробовал зарабатывать на микро-задачах? Знакомая показала площадку, за неделю $300 подняла…</div>
-              <div class="hint mt-2" style="font-size:11px">agent_anna · history-style</div>
-            </div>
-            <div class="card" style="border-left:3px solid var(--brand-1)">
-              <div class="flex items-center justify-between mb-2">
-                <span class="pill pill-brand">⏱ через 2ч 04м</span>
-                <span class="hint" style="font-size:11px">5 групп</span>
-              </div>
-              <div style="font-size:13px;line-height:1.4">Кто в теме крипты — где сейчас норм давать таски на дроп? Хочу разнообразить активность</div>
-              <div class="hint mt-2" style="font-size:11px">agent_mike · question-style</div>
-            </div>
-            <div class="card" style="opacity:0.7">
-              <div class="flex items-center justify-between mb-2">
-                <span class="pill pill-money">✓ отправлено</span>
-                <span class="hint" style="font-size:11px">вчера · 14 ответов</span>
-              </div>
-              <div style="font-size:13px;line-height:1.4">Поделюсь опытом — три недели как пробую подработку онлайн, доход стабилен $40-80 в день…</div>
-              <div class="hint mt-2" style="font-size:11px">agent_olga · 4 группы · CTR 18%</div>
-            </div>
-            <div class="card" style="opacity:0.55">
-              <div class="flex items-center justify-between mb-2">
-                <span class="pill pill-money">✓ отправлено</span>
-                <span class="hint" style="font-size:11px">2 дня · 8 ответов</span>
-              </div>
-              <div style="font-size:13px;line-height:1.4">Вопрос знатокам: что лучше для новичков — фриланс биржи или task-платформы?</div>
-              <div class="hint mt-2" style="font-size:11px">agent_anna · 6 групп · CTR 11%</div>
-            </div>
-          </div>
-        </div>
-        <div class="mainbtn">＋ Создать пост</div>
-        <div class="tabbar">
-          <div class="tab"><div class="ico">📊</div>Главная</div>
-          <div class="tab"><div class="ico">👥</div>Группы</div>
-          <div class="tab"><div class="ico">💬</div>Чаты</div>
-          <div class="tab"><div class="ico">👤</div>Лиды</div>
-          <div class="tab active"><div class="ico">🚀</div>Посты</div>
-          <div class="tab"><div class="ico">🤖</div>Агенты</div>
-        </div>
-      </div>
-    </div>
-    <div class="phone-label"><b>5 · Посты</b> — расписание проактивных публикаций</div>
-    </div>
-
-    <!-- ====================== TAB 6: АГЕНТЫ ====================== -->
-    <div>
-    <div class="phone">
-      <div class="notch"></div>
-      <div class="screen">
-        <div class="tg-header">
-          <span class="close">‹</span>
-          <span class="title">Агенты · 4</span>
-          <span class="menu">＋</span>
-        </div>
-        <div class="content">
-          <!-- Health summary -->
-          <div class="grid grid-cols-3 gap-2 mb-3">
-            <div class="card" style="text-align:center">
-              <div style="font-size:20px;font-weight:800;color:#34d399">3</div>
-              <div class="hint" style="font-size:10px">online</div>
-            </div>
-            <div class="card" style="text-align:center">
-              <div style="font-size:20px;font-weight:800;color:#fbbf24">1</div>
-              <div class="hint" style="font-size:10px">flood-wait</div>
-            </div>
-            <div class="card" style="text-align:center">
-              <div style="font-size:20px;font-weight:800;color:#f87171">0</div>
-              <div class="hint" style="font-size:10px">banned</div>
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <!-- Healthy -->
-            <div class="card">
-              <div class="flex items-center gap-3 mb-2">
-                <div class="avatar" style="background:var(--brand-grad);position:relative">
-                  A1
-                  <span style="position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;background:var(--money);border:2px solid var(--ink-2)"></span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">agent_anna · +380…12</div>
-                  <div class="hint">320 групп · 1 240 сообщ.</div>
-                </div>
-                <span class="pill pill-money">online</span>
-              </div>
-              <div>
-                <div class="flex justify-between text-xs mb-1"><span class="hint">Risk score</span><span style="color:#34d399">12 / 100</span></div>
-                <div class="bar"><span style="width:12%;background:var(--money)"></span></div>
-              </div>
-            </div>
-
-            <!-- Flood -->
-            <div class="card" style="border:1px solid rgba(245,158,11,0.35)">
-              <div class="flex items-center gap-3 mb-2">
-                <div class="avatar" style="background:var(--gold-grad);position:relative">
-                  A2
-                  <span style="position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;background:var(--gold);border:2px solid var(--ink-2)"></span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">agent_mike · +380…87</div>
-                  <div class="hint">flood-wait ещё 14 мин</div>
-                </div>
-                <span class="pill pill-gold">wait</span>
-              </div>
-              <div>
-                <div class="flex justify-between text-xs mb-1"><span class="hint">Risk score</span><span style="color:#fbbf24">58 / 100</span></div>
-                <div class="bar"><span style="width:58%;background:var(--gold)"></span></div>
-              </div>
-            </div>
-
-            <!-- Healthy 2 -->
-            <div class="card">
-              <div class="flex items-center gap-3 mb-2">
-                <div class="avatar" style="background:var(--money-grad);position:relative">
-                  A3
-                  <span style="position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;background:var(--money);border:2px solid var(--ink-2)"></span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div style="font-weight:600;font-size:14px">agent_olga · +380…44</div>
-                  <div class="hint">410 групп · 2 010 сообщ.</div>
-                </div>
-                <span class="pill pill-money">online</span>
-              </div>
-              <div>
-                <div class="flex justify-between text-xs mb-1"><span class="hint">Risk score</span><span style="color:#34d399">8 / 100</span></div>
-                <div class="bar"><span style="width:8%;background:var(--money)"></span></div>
-              </div>
-            </div>
-
-            <!-- Add -->
-            <div class="card" style="border:1px dashed rgba(124,58,237,0.4);text-align:center;background:transparent">
-              <div style="font-size:13px;color:#a78bfa;font-weight:600">＋ Добавить аккаунт</div>
-              <div class="hint" style="font-size:11px;margin-top:2px">SMS · QR · tdata</div>
-            </div>
-          </div>
-        </div>
-        <div class="mainbtn">⚡ Балансировка нагрузки</div>
-        <div class="tabbar">
-          <div class="tab"><div class="ico">📊</div>Главная</div>
-          <div class="tab"><div class="ico">👥</div>Группы</div>
-          <div class="tab"><div class="ico">💬</div>Чаты</div>
-          <div class="tab"><div class="ico">👤</div>Лиды</div>
-          <div class="tab"><div class="ico">🚀</div>Посты</div>
-          <div class="tab active"><div class="ico">🤖</div>Агенты</div>
-        </div>
-      </div>
-    </div>
-    <div class="phone-label"><b>6 · Агенты</b> — здоровье аккаунтов, risk-score, SMS-логин</div>
-    </div>
-
+  </div></div>
+  <div class="caption"><b>II</b>Группы<span>фильтры · авто-парсинг · live-лист</span></div>
   </div>
 
-  <!-- =============== БРЕНД-СИСТЕМА =============== -->
-  <div class="mt-16 rounded-2xl p-8" style="background:var(--ink-2);border:1px solid var(--line)">
-    <h2 style="font-size:20px;font-weight:700;margin-bottom:6px">Бренд-система</h2>
-    <p class="text-sm mb-6" style="color:var(--hint)">Тёмная база (Telegram-native) + энергичный градиент violet→cyan для всего интерактивного. Деньги/успех — emerald, новые лиды — amber, проблемы — red.</p>
+  <!-- ====== TAB 3: ЧАТЫ ====== -->
+  <div>
+  <div class="phone"><div class="screen">
+    <div class="wp w3"></div>
+    <div class="dynamic-island"></div>
+    <div class="statusbar"><span>9:41</span><span class="right"><span class="signal"><i></i><i></i><i></i><i></i></span><span style="font-size:11px;">5G</span><span class="battery"><i></i></span></span></div>
+    <div class="content">
+      <div class="large-title">Чаты<span class="sub">диалоги в реальном времени</span></div>
 
-    <div class="grid grid-cols-6 gap-3 text-xs">
-      <div><div class="h-16 rounded-xl" style="background:var(--brand-grad)"></div><div class="mt-2 font-mono">brand-grad</div><div style="color:var(--hint)">action / лого / active tab</div></div>
-      <div><div class="h-16 rounded-xl" style="background:var(--money-grad)"></div><div class="mt-2 font-mono">money-grad</div><div style="color:var(--hint)">конверсия / лиды</div></div>
-      <div><div class="h-16 rounded-xl" style="background:var(--gold-grad)"></div><div class="mt-2 font-mono">gold-grad</div><div style="color:var(--hint)">warning / new</div></div>
-      <div><div class="h-16 rounded-xl" style="background:#7c3aed"></div><div class="mt-2 font-mono">#7c3aed</div><div style="color:var(--hint)">violet</div></div>
-      <div><div class="h-16 rounded-xl" style="background:#06b6d4"></div><div class="mt-2 font-mono">#06b6d4</div><div style="color:var(--hint)">cyan</div></div>
-      <div><div class="h-16 rounded-xl" style="background:#10b981"></div><div class="mt-2 font-mono">#10b981</div><div style="color:var(--hint)">emerald · money</div></div>
-      <div><div class="h-16 rounded-xl" style="background:#f59e0b"></div><div class="mt-2 font-mono">#f59e0b</div><div style="color:var(--hint)">amber · new</div></div>
-      <div><div class="h-16 rounded-xl" style="background:#ef4444"></div><div class="mt-2 font-mono">#ef4444</div><div style="color:var(--hint)">red · banned</div></div>
-      <div><div class="h-16 rounded-xl" style="background:#0f1422;border:1px solid var(--line)"></div><div class="mt-2 font-mono">#0f1422</div><div style="color:var(--hint)">ink · screen bg</div></div>
-      <div><div class="h-16 rounded-xl" style="background:#1a2236;border:1px solid var(--line)"></div><div class="mt-2 font-mono">#1a2236</div><div style="color:var(--hint)">ink-2 · cards</div></div>
-      <div><div class="h-16 rounded-xl" style="background:#232d45;border:1px solid var(--line)"></div><div class="mt-2 font-mono">#232d45</div><div style="color:var(--hint)">ink-3 · borders</div></div>
-      <div><div class="h-16 rounded-xl" style="background:#ffffff"></div><div class="mt-2 font-mono">#ffffff</div><div style="color:var(--hint)">text</div></div>
-    </div>
+      <div class="seg" style="margin-bottom:14px;">
+        <div class="on">Все</div>
+        <div>Sent</div>
+        <div>Replies · 14</div>
+      </div>
 
-    <div class="mt-8 grid grid-cols-3 gap-4 text-xs" style="color:var(--hint)">
-      <div>
-        <div style="color:#fff;font-weight:600;margin-bottom:4px">Логотип</div>
-        Квадратный mark с буквой «M» в brand-градиенте, скруглением 8px и мягкой подсветкой. Работает иконкой Mini App в @BotFather.
+      <div class="glass" style="padding:16px; margin-bottom:10px;">
+        <div style="position:relative; z-index:2;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+            <div class="avatar av-blue" style="width:30px; height:30px; font-size:12px;">A1</div>
+            <span style="font-size:13px; font-weight:700;">agent_anna</span>
+            <span style="font-size:12px; color:rgba(255,255,255,0.65);">→ Заработок 24/7</span>
+            <span class="cap green" style="margin-left:auto;">✓ sent</span>
+          </div>
+          <div style="font-size:14px; line-height:1.45;">Тоже искала способы подработки. Попробовала пару заданий на одной площадке — пришло около $40 за вечер</div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:8px; font-weight:600;">2 мин · ответ @alex_crypto</div>
+        </div>
       </div>
-      <div>
-        <div style="color:#fff;font-weight:600;margin-bottom:4px">Типографика</div>
-        SF Pro / Inter. Заголовки 800 weight с лёгким negative letter-spacing. Цифры всегда крупные и жирные — это про деньги.
+
+      <div class="glass" style="padding:16px; margin-bottom:10px; background: linear-gradient(180deg, rgba(48,209,88,0.25), rgba(48,209,88,0.08));">
+        <div style="position:relative; z-index:2;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+            <div class="avatar av-green" style="width:30px; height:30px; font-size:12px;">@</div>
+            <span style="font-size:13px; font-weight:700;">@alex_crypto</span>
+            <span style="font-size:12px; color:#b3ffce; font-weight:700;">ответил</span>
+            <span class="cap green" style="margin-left:auto;">reply ✓</span>
+          </div>
+          <div style="font-size:14px; line-height:1.45; color:#d4ffe1; font-weight:600;">а что за платформа? скинь ссылку 🔥</div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:8px; font-weight:600;">1 мин назад</div>
+        </div>
       </div>
-      <div>
-        <div style="color:#fff;font-weight:600;margin-bottom:4px">Интеракции</div>
-        Тёмный фон без излишних теней, акцент через градиент и свечение. MainButton Telegram перекрашивается в brand-color через WebApp API.
+
+      <div class="glass" style="padding:16px; margin-bottom:10px;">
+        <div style="position:relative; z-index:2;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+            <div class="avatar av-orange" style="width:30px; height:30px; font-size:12px;">A2</div>
+            <span style="font-size:13px; font-weight:700;">agent_mike</span>
+            <span style="font-size:12px; color:rgba(255,255,255,0.65);">→ Крипта</span>
+            <span class="cap green" style="margin-left:auto;">✓ sent</span>
+          </div>
+          <div style="font-size:14px; line-height:1.45;">Норм инфа, спасибо. Сам недавно начал с микро-задач, $20-50/день стабильно</div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:8px; font-weight:600;">14 мин назад</div>
+        </div>
+      </div>
+
+      <div class="glass" style="padding:16px; background: linear-gradient(180deg, rgba(255,55,95,0.22), rgba(255,55,95,0.05));">
+        <div style="position:relative; z-index:2;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <div class="avatar av-pink" style="width:30px; height:30px; font-size:12px;">A3</div>
+            <span style="font-size:13px; font-weight:700;">agent_olga</span>
+            <span style="font-size:12px; color:rgba(255,255,255,0.65);">→ Спам каналы</span>
+            <span class="cap pink" style="margin-left:auto;">slowmode</span>
+          </div>
+          <div style="font-size:13px; color:rgba(255,255,255,0.85); font-style:italic;">лимит группы: 1 сообщение / час</div>
+        </div>
       </div>
     </div>
+    <div class="tabbar">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v8H3zm4-4h2v12H7zm4-6h2v18h-2zm4 4h2v14h-2zm4 8h2v6h-2z"/></svg>Главная</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5v1H3zm14 0c0-2 2-4 4-4v5h-4z"/></svg>Группы</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H7l-3 3z"/></svg>Чаты</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7z"/></svg>Лиды</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 14h6l-2 8 10-13h-6z"/></svg>Посты</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="6" width="14" height="12" rx="3"/><circle cx="9" cy="11" r="1.3" fill="#000"/><circle cx="15" cy="11" r="1.3" fill="#000"/></svg>Агенты</div>
+    </div>
+  </div></div>
+  <div class="caption"><b>III</b>Чаты<span>отправки · ответы · slowmode</span></div>
   </div>
+
+  <!-- ====== TAB 4: ЛИДЫ ====== -->
+  <div>
+  <div class="phone"><div class="screen">
+    <div class="wp w4"></div>
+    <div class="dynamic-island"></div>
+    <div class="statusbar"><span>9:41</span><span class="right"><span class="signal"><i></i><i></i><i></i><i></i></span><span style="font-size:11px;">5G</span><span class="battery"><i></i></span></span></div>
+    <div class="content">
+      <div class="large-title">Лиды<span class="sub">612 человек · воронка</span></div>
+
+      <div class="glass" style="padding:18px; margin-bottom:14px;">
+        <div style="position:relative; z-index:2;">
+          <div style="margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; font-weight:700;">
+              <span style="font-size:13px;">Обнаружены</span>
+              <span class="num" style="font-size:20px;">612</span>
+            </div>
+            <div class="bar"><span style="width:100%; background: linear-gradient(90deg, #5ac8fa, #0a84ff);"></span></div>
+          </div>
+          <div style="margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; font-weight:700;">
+              <span style="font-size:13px;">В работе</span>
+              <span class="num" style="font-size:20px;">284</span>
+            </div>
+            <div class="bar"><span style="width:46%; background: linear-gradient(90deg, #e08aff, #bf5af2);"></span></div>
+          </div>
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; font-weight:700;">
+              <span style="font-size:13px;">Конвертированы</span>
+              <span class="num" style="font-size:20px; color:#b3ffce;">42 · 6.8%</span>
+            </div>
+            <div class="bar"><span style="width:7%; background: linear-gradient(90deg, #34e670, #30d158);"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="seg" style="margin-bottom:14px;">
+        <div class="on">Новые</div>
+        <div>В работе</div>
+        <div>Conv ✓</div>
+      </div>
+
+      <div class="glass" style="padding: 6px 0;">
+        <div style="position:relative; z-index:2;">
+          <div style="padding:12px 16px; display:flex; align-items:center; gap:12px;">
+            <div class="avatar av-orange">A</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:14px;">@alex_crypto</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7);">«Заработок 24/7» · 12 мин</div>
+            </div>
+            <span class="cap orange">new</span>
+          </div>
+          <div style="height:0.5px; background:rgba(255,255,255,0.15); margin:0 16px;"></div>
+          <div style="padding:12px 16px; display:flex; align-items:center; gap:12px;">
+            <div class="avatar av-green">М</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:14px;">@marina_ua</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7);">«Подработка Київ» · 1ч</div>
+            </div>
+            <span class="cap green">replied</span>
+          </div>
+          <div style="height:0.5px; background:rgba(255,255,255,0.15); margin:0 16px;"></div>
+          <div style="padding:12px 16px; display:flex; align-items:center; gap:12px; background: linear-gradient(90deg, rgba(48,209,88,0.15), transparent);">
+            <div class="avatar av-green">К</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:14px;">@kate_finance</div>
+              <div style="font-size:12px; color:#b3ffce; font-weight:700;">💰 конверсия · $42</div>
+            </div>
+            <span class="cap green">paid ✓</span>
+          </div>
+          <div style="height:0.5px; background:rgba(255,255,255,0.15); margin:0 16px;"></div>
+          <div style="padding:12px 16px; display:flex; align-items:center; gap:12px;">
+            <div class="avatar av-purple">D</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:14px;">@dmitry_btc</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7);">«Крипта инсайды» · 3ч</div>
+            </div>
+            <span class="cap purple">contacted</span>
+          </div>
+          <div style="height:0.5px; background:rgba(255,255,255,0.15); margin:0 16px;"></div>
+          <div style="padding:12px 16px; display:flex; align-items:center; gap:12px;">
+            <div class="avatar av-cyan">S</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:14px;">@serge_jobs</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7);">«Работа удалёнка» · 5ч</div>
+            </div>
+            <span class="cap cyan">joined</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:14px; font-size:11px; color:rgba(255,255,255,0.55); font-weight:600;">↔ свайп карточки — смена статуса</div>
+    </div>
+    <div class="cta green">+ Найти лидов</div>
+    <div class="tabbar">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v8H3zm4-4h2v12H7zm4-6h2v18h-2zm4 4h2v14h-2zm4 8h2v6h-2z"/></svg>Главная</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5v1H3zm14 0c0-2 2-4 4-4v5h-4z"/></svg>Группы</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H7l-3 3z"/></svg>Чаты</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7z"/></svg>Лиды</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 14h6l-2 8 10-13h-6z"/></svg>Посты</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="6" width="14" height="12" rx="3"/><circle cx="9" cy="11" r="1.3" fill="#000"/><circle cx="15" cy="11" r="1.3" fill="#000"/></svg>Агенты</div>
+    </div>
+  </div></div>
+  <div class="caption"><b>IV</b>Лиды<span>воронка · конверсии · свайп</span></div>
+  </div>
+
+  <!-- ====== TAB 5: ПОСТЫ ====== -->
+  <div>
+  <div class="phone"><div class="screen">
+    <div class="wp w5"></div>
+    <div class="dynamic-island"></div>
+    <div class="statusbar"><span>9:41</span><span class="right"><span class="signal"><i></i><i></i><i></i><i></i></span><span style="font-size:11px;">5G</span><span class="battery"><i></i></span></span></div>
+    <div class="content">
+      <div class="large-title">Посты<span class="sub">проактивные публикации</span></div>
+
+      <div class="glass" style="padding:20px; margin-bottom:14px; background: linear-gradient(180deg, rgba(48,209,88,0.35), rgba(48,209,88,0.10));">
+        <div style="position:relative; z-index:2; display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div style="font-size:12px; color:#d4ffe1; font-weight:700; text-transform:uppercase; letter-spacing:0.10em;">Следующий пост</div>
+            <div style="font-size:26px; font-weight:800; margin-top:6px; letter-spacing:-0.03em;">через <span class="num" style="color:#b3ffce;">18 мин</span></div>
+            <div style="font-size:12px; color:rgba(255,255,255,0.75); margin-top:6px; font-weight:600;">agent_anna · 3 группы</div>
+          </div>
+          <div style="width:54px; height:54px; border-radius:50%;
+            background: linear-gradient(135deg, rgba(48,209,88,0.85), rgba(48,209,88,0.3));
+            display:flex; align-items:center; justify-content:center;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 0 0 0.5px rgba(255,255,255,0.4);">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M12 2 4 14h6l-2 8 10-13h-6z"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="seg" style="margin-bottom:14px;">
+        <div class="on">Запланир.</div>
+        <div>Sent</div>
+        <div>Шаблоны</div>
+      </div>
+
+      <div class="glass" style="padding:16px; margin-bottom:10px;">
+        <div style="position:relative; z-index:2;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <span class="cap orange">⌒ 18 мин</span>
+            <span style="font-size:12px; color:rgba(255,255,255,0.6); font-weight:700;">3 группы</span>
+          </div>
+          <div style="font-size:14px; line-height:1.5;">Народ, кто-то пробовал зарабатывать на микро-задачах? Знакомая показала площадку, за неделю $300 подняла…</div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:10px; font-weight:600;">agent_anna · history-style</div>
+        </div>
+      </div>
+
+      <div class="glass" style="padding:16px; margin-bottom:10px;">
+        <div style="position:relative; z-index:2;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <span class="cap purple">⌒ 2ч 04м</span>
+            <span style="font-size:12px; color:rgba(255,255,255,0.6); font-weight:700;">5 групп</span>
+          </div>
+          <div style="font-size:14px; line-height:1.5;">Кто в теме крипты — где сейчас норм давать таски на дроп? Хочу разнообразить активность.</div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:10px; font-weight:600;">agent_mike · question-style</div>
+        </div>
+      </div>
+
+      <div class="glass" style="padding:16px; opacity:0.7;">
+        <div style="position:relative; z-index:2;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <span class="cap green">✓ sent</span>
+            <span style="font-size:12px; color:rgba(255,255,255,0.6); font-weight:700;">вчера · 14 ответов</span>
+          </div>
+          <div style="font-size:14px; line-height:1.5;">Поделюсь опытом — три недели как пробую подработку онлайн, доход стабилен $40-80/день…</div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:10px; font-weight:600;">agent_olga · 4 группы · CTR 18%</div>
+        </div>
+      </div>
+    </div>
+    <div class="cta">+ Создать пост</div>
+    <div class="tabbar">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v8H3zm4-4h2v12H7zm4-6h2v18h-2zm4 4h2v14h-2zm4 8h2v6h-2z"/></svg>Главная</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5v1H3zm14 0c0-2 2-4 4-4v5h-4z"/></svg>Группы</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H7l-3 3z"/></svg>Чаты</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7z"/></svg>Лиды</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 14h6l-2 8 10-13h-6z"/></svg>Посты</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="6" width="14" height="12" rx="3"/><circle cx="9" cy="11" r="1.3" fill="#000"/><circle cx="15" cy="11" r="1.3" fill="#000"/></svg>Агенты</div>
+    </div>
+  </div></div>
+  <div class="caption"><b>V</b>Посты<span>расписание · шаблоны · CTR</span></div>
+  </div>
+
+  <!-- ====== TAB 6: АГЕНТЫ ====== -->
+  <div>
+  <div class="phone"><div class="screen">
+    <div class="wp w6"></div>
+    <div class="dynamic-island"></div>
+    <div class="statusbar"><span>9:41</span><span class="right"><span class="signal"><i></i><i></i><i></i><i></i></span><span style="font-size:11px;">5G</span><span class="battery"><i></i></span></span></div>
+    <div class="content">
+      <div class="large-title">Агенты<span class="sub">4 аккаунта · 3 онлайн</span></div>
+
+      <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-bottom:14px;">
+        <div class="glass" style="padding:14px; text-align:center;">
+          <div style="position:relative; z-index:2;">
+            <div class="num" style="font-size:32px; color:#b3ffce;">3</div>
+            <div style="font-size:10px; font-weight:700; color:rgba(255,255,255,0.75); text-transform:uppercase; margin-top:4px; letter-spacing:0.10em;">online</div>
+          </div>
+        </div>
+        <div class="glass" style="padding:14px; text-align:center;">
+          <div style="position:relative; z-index:2;">
+            <div class="num" style="font-size:32px; color:#ffd9a0;">1</div>
+            <div style="font-size:10px; font-weight:700; color:rgba(255,255,255,0.75); text-transform:uppercase; margin-top:4px; letter-spacing:0.10em;">wait</div>
+          </div>
+        </div>
+        <div class="glass" style="padding:14px; text-align:center;">
+          <div style="position:relative; z-index:2;">
+            <div class="num" style="font-size:32px; color:rgba(255,255,255,0.55);">0</div>
+            <div style="font-size:10px; font-weight:700; color:rgba(255,255,255,0.75); text-transform:uppercase; margin-top:4px; letter-spacing:0.10em;">banned</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass" style="padding:16px; margin-bottom:10px;">
+        <div style="position:relative; z-index:2;">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+            <div class="avatar av-blue" style="position:relative;">
+              A
+              <span style="position:absolute; right:-3px; bottom:-3px; width:14px; height:14px; border-radius:50%; background:#34e670; box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 0 0 2.5px rgba(20,30,50,0.9), 0 0 8px #34e670;"></span>
+            </div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:15px;">agent_anna</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7);">+380 ··· 12 · 320 групп</div>
+            </div>
+            <span class="cap green">online</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px; font-weight:700;">
+            <span style="color:rgba(255,255,255,0.7);">Risk score</span>
+            <span class="num" style="color:#b3ffce;">12 / 100</span>
+          </div>
+          <div class="bar"><span style="width:12%; background: linear-gradient(90deg, #34e670, #30d158);"></span></div>
+        </div>
+      </div>
+
+      <div class="glass" style="padding:16px; margin-bottom:10px; background: linear-gradient(180deg, rgba(255,159,10,0.20), rgba(255,159,10,0.05));">
+        <div style="position:relative; z-index:2;">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+            <div class="avatar av-orange" style="position:relative;">
+              M
+              <span style="position:absolute; right:-3px; bottom:-3px; width:14px; height:14px; border-radius:50%; background:#ffc56d; box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 0 0 2.5px rgba(30,20,8,0.9), 0 0 8px #ffc56d;"></span>
+            </div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:15px;">agent_mike</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7);">flood-wait · 14 мин</div>
+            </div>
+            <span class="cap orange">wait</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px; font-weight:700;">
+            <span style="color:rgba(255,255,255,0.7);">Risk score</span>
+            <span class="num" style="color:#ffd9a0;">58 / 100</span>
+          </div>
+          <div class="bar"><span style="width:58%; background: linear-gradient(90deg, #ffc56d, #ff9f0a);"></span></div>
+        </div>
+      </div>
+
+      <div class="glass" style="padding:16px; margin-bottom:10px;">
+        <div style="position:relative; z-index:2;">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+            <div class="avatar av-green" style="position:relative;">
+              O
+              <span style="position:absolute; right:-3px; bottom:-3px; width:14px; height:14px; border-radius:50%; background:#34e670; box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 0 0 2.5px rgba(8,30,15,0.9), 0 0 8px #34e670;"></span>
+            </div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:15px;">agent_olga</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.7);">+380 ··· 44 · 410 групп</div>
+            </div>
+            <span class="cap green">online</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px; font-weight:700;">
+            <span style="color:rgba(255,255,255,0.7);">Risk score</span>
+            <span class="num" style="color:#b3ffce;">8 / 100</span>
+          </div>
+          <div class="bar"><span style="width:8%; background: linear-gradient(90deg, #34e670, #30d158);"></span></div>
+        </div>
+      </div>
+
+      <div class="glass" style="padding:20px; text-align:center; border: 1.5px dashed rgba(100,210,255,0.5); background: rgba(100,210,255,0.10);">
+        <div style="position:relative; z-index:2;">
+          <div style="font-size:15px; font-weight:700; color:#9fe1ff;">+ Добавить аккаунт</div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.6); margin-top:4px; font-weight:600;">SMS · QR · tdata</div>
+        </div>
+      </div>
+    </div>
+    <div class="cta accent">⚡ Балансировка</div>
+    <div class="tabbar">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v8H3zm4-4h2v12H7zm4-6h2v18h-2zm4 4h2v14h-2zm4 8h2v6h-2z"/></svg>Главная</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5v1H3zm14 0c0-2 2-4 4-4v5h-4z"/></svg>Группы</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H7l-3 3z"/></svg>Чаты</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7z"/></svg>Лиды</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 14h6l-2 8 10-13h-6z"/></svg>Посты</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="6" width="14" height="12" rx="3"/><circle cx="9" cy="11" r="1.3" fill="#000"/><circle cx="15" cy="11" r="1.3" fill="#000"/></svg>Агенты</div>
+    </div>
+  </div></div>
+  <div class="caption"><b>VI</b>Агенты<span>здоровье · risk score · балансировка</span></div>
+  </div>
+
 </div>
 
 </body>

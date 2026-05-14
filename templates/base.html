@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0f1422">
+    <meta name="theme-color" content="#02030a">
     <title>{% block title %}Главная{% endblock %} · MoneyMaker AI</title>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -11,237 +11,391 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        :root {
-            --brand-1: #7c3aed;
-            --brand-2: #06b6d4;
-            --money:   #10b981;
-            --gold:    #f59e0b;
-            --danger:  #ef4444;
-            --ink:     #0f1422;
-            --ink-2:   #1a2236;
-            --ink-3:   #232d45;
-            --line:    rgba(255,255,255,0.08);
-            --text:    #ffffff;
-            --hint:    #8a93a8;
-            --brand-grad: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);
-            --money-grad: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
-            --gold-grad:  linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+        :root{
+            --bg-base:    #02030a;
+            --ink:        #ffffff;
+            --ink-dim:    rgba(255,255,255,0.72);
+            --ink-mute:   rgba(255,255,255,0.48);
+            --stroke:     rgba(255,255,255,0.12);
+            --stroke-hi:  rgba(255,255,255,0.25);
+
+            --blue:   #0a84ff;
+            --green:  #30d158;
+            --orange: #ff9f0a;
+            --pink:   #ff375f;
+            --purple: #bf5af2;
+            --cyan:   #64d2ff;
+            --yellow: #ffd60a;
+
+            --brand-grad: linear-gradient(135deg, #64d2ff 0%, #bf5af2 100%);
+            --money-grad: linear-gradient(135deg, #34e670 0%, #30d158 100%);
+            --gold-grad:  linear-gradient(135deg, #ffd9a0 0%, #ff9f0a 100%);
+
+            --sf: -apple-system, 'SF Pro Display', 'Inter', system-ui, sans-serif;
         }
 
-        * { -webkit-tap-highlight-color: transparent; }
-        html, body { background: var(--ink) !important; color: var(--text); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        html, body {
+            background: var(--bg-base) !important;
+            color: var(--ink);
+        }
         body {
-            font-family: -apple-system, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif;
-            padding-bottom: calc(80px + env(safe-area-inset-bottom));
+            font-family: var(--sf);
+            letter-spacing: -0.01em;
             min-height: 100vh;
+            padding-bottom: calc(100px + env(safe-area-inset-bottom));
+            /* Тёмная подложка с мягкими цветными blob'ами */
+            background-image:
+                radial-gradient(circle at 8% 8%,   rgba(10,132,255,0.32)  0%, transparent 35%),
+                radial-gradient(circle at 92% 14%, rgba(255,55,95,0.28)   0%, transparent 35%),
+                radial-gradient(circle at 75% 88%, rgba(191,90,242,0.30)  0%, transparent 35%),
+                radial-gradient(circle at 18% 80%, rgba(48,209,88,0.25)   0%, transparent 32%),
+                radial-gradient(circle at 50% 50%, rgba(255,159,10,0.10)  0%, transparent 55%),
+                var(--bg-base);
+            background-attachment: fixed;
         }
 
+        /* Скрываем старый верхний nav, используем bottom tab-bar */
         nav.gradient-bg { display: none !important; }
+        footer { display: none !important; }
 
-        .brand-header {
-            padding: 14px 16px;
+        /* =============== Brand header (Liquid Glass capsule) =============== */
+        .brand-header{
+            margin: 14px;
+            padding: 12px 16px;
             display: flex; align-items: center; gap: 12px;
-            position: sticky; top: 0; z-index: 30;
-            backdrop-filter: blur(20px);
-            background: rgba(15,20,34,0.85);
-            border-bottom: 1px solid var(--line);
+            position: sticky; top: 12px; z-index: 30;
+            border-radius: 24px;
+            background:
+              linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 22%, rgba(255,255,255,0.0) 55%, rgba(255,255,255,0.05) 100%),
+              rgba(255,255,255,0.08);
+            backdrop-filter: blur(50px) saturate(160%) brightness(0.95);
+            -webkit-backdrop-filter: blur(50px) saturate(160%) brightness(0.95);
+            box-shadow:
+              inset 0 1.5px 0 rgba(255,255,255,0.4),
+              inset 0 0 0 1px rgba(255,255,255,0.18),
+              inset 0 -1.5px 0 rgba(0,0,0,0.3),
+              0 20px 40px -15px rgba(0,0,0,0.6);
         }
-        .brand-logo {
-            width: 32px; height: 32px; border-radius: 9px;
+        .brand-logo{
+            width: 36px; height: 36px; border-radius: 10px;
             background: var(--brand-grad);
-            display:inline-flex; align-items:center; justify-content:center;
-            font-weight: 800; font-size: 15px; color:#fff;
-            box-shadow: 0 4px 12px -2px rgba(124,58,237,0.5);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 17px; color: #fff;
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.5),
+              inset 0 0 0 0.5px rgba(255,255,255,0.3),
+              0 6px 16px -4px rgba(100,210,255,0.6);
         }
-        .brand-title { font-weight: 700; font-size: 16px; }
-        .brand-subtitle { font-size: 11px; color: var(--hint); }
+        .brand-title { font-weight: 700; font-size: 16px; letter-spacing: -0.02em; }
+        .brand-subtitle { font-size: 11px; color: var(--ink-dim); font-weight: 500; }
 
-        .tabbar {
-            position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
-            background: rgba(15,20,34,0.92);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid var(--line);
-            display: grid; grid-template-columns: repeat(6, 1fr);
-            padding: 8px 4px calc(10px + env(safe-area-inset-bottom));
+        /* =============== Agent start/stop button (glass pill) =============== */
+        .agent-ctl{
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 14px; border-radius: 99px;
+            font-size: 12px; font-weight: 700; letter-spacing: -0.01em;
+            color: #fff;
+            background:
+              linear-gradient(180deg, rgba(94,170,255,0.85), rgba(10,132,255,0.55));
+            backdrop-filter: blur(20px) saturate(180%);
+            border: none; cursor: pointer;
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.55),
+              inset 0 0 0 0.5px rgba(255,255,255,0.3),
+              inset 0 -1px 0 rgba(0,0,0,0.25),
+              0 8px 20px -6px rgba(10,132,255,0.5);
+            transition: filter 0.2s;
         }
-        .tab {
-            position: relative;
-            display: flex; flex-direction: column; align-items: center; gap: 3px;
-            font-size: 10px; color: var(--hint); text-decoration: none !important;
-            padding: 4px 0; transition: 0.2s;
+        .agent-ctl:hover { filter: brightness(1.1); }
+        .agent-ctl.running {
+            background: linear-gradient(180deg, rgba(94,230,140,0.85), rgba(48,209,88,0.55));
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.6),
+              inset 0 0 0 0.5px rgba(255,255,255,0.3),
+              inset 0 -1px 0 rgba(0,0,0,0.25),
+              0 8px 20px -6px rgba(48,209,88,0.55);
         }
-        .tab .ico { font-size: 20px; line-height: 1; }
-        .tab.active { color: #fff; font-weight: 600; }
-        .tab.active .ico { filter: drop-shadow(0 0 6px rgba(124,58,237,0.7)); }
-        .tab.active::after {
-            content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%);
-            width:30px; height:3px; background: var(--brand-grad); border-radius: 2px 2px 0 0;
+        .agent-ctl .dot { width:6px; height:6px; border-radius:50%; background:#fff; box-shadow: 0 0 8px rgba(255,255,255,0.6); }
+        .agent-ctl.running .dot { animation: pulse 1.5s ease-in-out infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* =============== Main container =============== */
+        main {
+            max-width: 100% !important;
+            padding: 6px 14px 14px !important;
         }
 
-        main { max-width: 100% !important; padding: 14px !important; }
-
-        .bg-gray-50, .bg-gray-100 { background: var(--ink) !important; }
-        .bg-white { background: var(--ink-2) !important; }
-        .bg-white.rounded-lg, .bg-white.rounded-xl, .bg-white.rounded-2xl,
+        /* =============== Liquid Glass material — applied to existing Tailwind cards =============== */
+        .bg-white,
+        .bg-gray-50, .bg-gray-100,
         .stat-card {
-            border: 1px solid var(--line) !important;
-            border-radius: 14px !important;
-            box-shadow: none !important;
+            position: relative;
+            background:
+              linear-gradient(180deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.04) 22%, rgba(255,255,255,0.0) 55%, rgba(255,255,255,0.05) 100%),
+              rgba(255,255,255,0.07) !important;
+            backdrop-filter: blur(50px) saturate(160%) brightness(0.95);
+            -webkit-backdrop-filter: blur(50px) saturate(160%) brightness(0.95);
+            border-radius: 20px !important;
+            border: none !important;
+            box-shadow:
+              inset 0 1.5px 0 rgba(255,255,255,0.4),
+              inset 0 0 0 1px rgba(255,255,255,0.16),
+              inset 0 -1.5px 0 rgba(0,0,0,0.3),
+              0 20px 40px -15px rgba(0,0,0,0.55) !important;
         }
-        .shadow, .shadow-md, .shadow-lg, .shadow-sm { box-shadow: none !important; }
+        .bg-white.rounded-lg, .bg-white.rounded-xl, .bg-white.rounded-2xl,
+        .stat-card.rounded-lg { border-radius: 20px !important; }
 
-        .text-gray-800, .text-gray-900, .text-black { color: var(--text) !important; }
-        .text-gray-700, .text-gray-600 { color: #c5cad6 !important; }
-        .text-gray-500, .text-gray-400 { color: var(--hint) !important; }
+        .shadow, .shadow-md, .shadow-lg, .shadow-sm, .shadow-xl { box-shadow: inherit !important; }
 
+        /* Text overrides */
+        .text-gray-800, .text-gray-900, .text-black { color: var(--ink) !important; }
+        .text-gray-700, .text-gray-600 { color: var(--ink-dim) !important; }
+        .text-gray-500, .text-gray-400 { color: var(--ink-mute) !important; }
+
+        /* Borders → invisible (мы используем inset shadow) */
         .border, .border-gray-200, .border-gray-300,
         .border-t, .border-b, .border-l, .border-r {
-            border-color: var(--line) !important;
+            border-color: var(--stroke) !important;
         }
-        .border-l-4 { border-left-width: 3px !important; }
-        .border-blue-500   { border-color: var(--brand-1) !important; }
-        .border-green-500  { border-color: var(--money) !important; }
-        .border-purple-500 { border-color: var(--brand-1) !important; }
-        .border-orange-500 { border-color: var(--gold) !important; }
-        .border-red-500    { border-color: var(--danger) !important; }
-        .border-yellow-500 { border-color: var(--gold) !important; }
+        .border-l-4 { border-left-width: 0 !important; }
+        .border-blue-500, .border-purple-500, .border-indigo-500 { box-shadow: inset 3px 0 0 var(--cyan); }
+        .border-green-500, .border-emerald-500 { box-shadow: inset 3px 0 0 var(--green); }
+        .border-orange-500, .border-yellow-500, .border-amber-500 { box-shadow: inset 3px 0 0 var(--orange); }
+        .border-red-500, .border-rose-500 { box-shadow: inset 3px 0 0 var(--pink); }
 
-        button, .btn { font-weight: 600; }
-        /* Насыщенные кнопки/бейджи */
-        .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-indigo-500, .bg-indigo-600, .bg-indigo-700,
-        .bg-purple-500, .bg-purple-600, .bg-purple-700, .bg-pink-500, .bg-pink-600, .bg-pink-700 {
-            background: var(--brand-grad) !important; color: #fff !important;
+        /* =============== Buttons (Liquid Glass) =============== */
+        button, .btn { font-weight: 700; }
+        .bg-blue-500, .bg-blue-600, .bg-blue-700,
+        .bg-indigo-500, .bg-indigo-600, .bg-indigo-700,
+        .bg-purple-500, .bg-purple-600, .bg-purple-700,
+        .bg-pink-500, .bg-pink-600, .bg-pink-700 {
+            background: linear-gradient(180deg, rgba(94,170,255,0.9), rgba(10,132,255,0.7)) !important;
+            color: #fff !important;
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.5),
+              inset 0 0 0 0.5px rgba(255,255,255,0.3),
+              inset 0 -1px 0 rgba(0,0,0,0.25),
+              0 8px 20px -6px rgba(10,132,255,0.45) !important;
         }
-        .bg-green-500, .bg-green-600, .bg-green-700, .bg-emerald-500, .bg-emerald-600 {
-            background: var(--money-grad) !important; color: #fff !important;
+        .bg-green-500, .bg-green-600, .bg-green-700,
+        .bg-emerald-500, .bg-emerald-600 {
+            background: linear-gradient(180deg, rgba(94,230,140,0.9), rgba(48,209,88,0.7)) !important;
+            color: #fff !important;
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.55),
+              inset 0 0 0 0.5px rgba(255,255,255,0.3),
+              inset 0 -1px 0 rgba(0,0,0,0.25),
+              0 8px 20px -6px rgba(48,209,88,0.45) !important;
         }
         .bg-orange-500, .bg-orange-600, .bg-yellow-500, .bg-yellow-600, .bg-yellow-700 {
-            background: var(--gold-grad) !important; color: #fff !important;
+            background: linear-gradient(180deg, rgba(255,213,160,0.9), rgba(255,159,10,0.7)) !important;
+            color: #fff !important;
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.55),
+              inset 0 -1px 0 rgba(0,0,0,0.25),
+              0 8px 20px -6px rgba(255,159,10,0.45) !important;
         }
-        .bg-red-500, .bg-red-600, .bg-red-700 { background: var(--danger) !important; color:#fff !important; }
+        .bg-red-500, .bg-red-600, .bg-red-700 {
+            background: linear-gradient(180deg, rgba(255,107,157,0.9), rgba(255,55,95,0.7)) !important;
+            color: #fff !important;
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.55),
+              inset 0 -1px 0 rgba(0,0,0,0.25),
+              0 8px 20px -6px rgba(255,55,95,0.45) !important;
+        }
 
-        /* Светлые фоны/бейджи — переводим в тёмные tinted полупрозрачные */
+        /* Светлые tinted fills (бейджи, секции) */
         .bg-blue-50, .bg-blue-100, .bg-blue-200,
         .bg-indigo-50, .bg-indigo-100, .bg-indigo-200,
         .bg-purple-50, .bg-purple-100, .bg-purple-200,
         .bg-pink-50, .bg-pink-100, .bg-pink-200 {
-            background: rgba(124,58,237,0.14) !important;
+            background: linear-gradient(180deg, rgba(10,132,255,0.22), rgba(10,132,255,0.08)) !important;
+            backdrop-filter: blur(20px) saturate(180%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), inset 0 0 0 0.5px rgba(255,255,255,0.15) !important;
         }
-        .bg-green-50, .bg-green-100, .bg-green-200,
-        .bg-emerald-50, .bg-emerald-100 {
-            background: rgba(16,185,129,0.14) !important;
+        .bg-green-50, .bg-green-100, .bg-green-200, .bg-emerald-50, .bg-emerald-100 {
+            background: linear-gradient(180deg, rgba(48,209,88,0.22), rgba(48,209,88,0.08)) !important;
+            backdrop-filter: blur(20px) saturate(180%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), inset 0 0 0 0.5px rgba(255,255,255,0.15) !important;
         }
         .bg-yellow-50, .bg-yellow-100, .bg-yellow-200,
-        .bg-orange-50, .bg-orange-100, .bg-orange-200,
-        .bg-amber-50, .bg-amber-100 {
-            background: rgba(245,158,11,0.14) !important;
+        .bg-orange-50, .bg-orange-100, .bg-orange-200, .bg-amber-50, .bg-amber-100 {
+            background: linear-gradient(180deg, rgba(255,159,10,0.22), rgba(255,159,10,0.08)) !important;
+            backdrop-filter: blur(20px) saturate(180%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), inset 0 0 0 0.5px rgba(255,255,255,0.15) !important;
         }
-        .bg-red-50, .bg-red-100, .bg-red-200,
-        .bg-rose-50, .bg-rose-100 {
-            background: rgba(239,68,68,0.14) !important;
+        .bg-red-50, .bg-red-100, .bg-red-200, .bg-rose-50, .bg-rose-100 {
+            background: linear-gradient(180deg, rgba(255,55,95,0.22), rgba(255,55,95,0.08)) !important;
+            backdrop-filter: blur(20px) saturate(180%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), inset 0 0 0 0.5px rgba(255,255,255,0.15) !important;
         }
 
-        /* Цветной текст на тёмном — высветляем */
+        /* Цветной текст — высветлен под тёмный фон */
         .text-blue-500, .text-blue-600, .text-blue-700, .text-blue-800,
-        .text-indigo-500, .text-indigo-600, .text-indigo-700 { color: #a78bfa !important; }
-        .text-purple-500, .text-purple-600, .text-purple-700, .text-purple-800 { color: #c084fc !important; }
-        .text-pink-500, .text-pink-600, .text-pink-700 { color: #f0abfc !important; }
+        .text-indigo-500, .text-indigo-600, .text-indigo-700 { color: #9fe1ff !important; }
+        .text-purple-500, .text-purple-600, .text-purple-700, .text-purple-800 { color: #dcb8ff !important; }
+        .text-pink-500, .text-pink-600, .text-pink-700 { color: #ffb3c5 !important; }
         .text-green-500, .text-green-600, .text-green-700, .text-green-800,
-        .text-emerald-500, .text-emerald-600, .text-emerald-700 { color: #34d399 !important; }
+        .text-emerald-500, .text-emerald-600, .text-emerald-700 { color: #b3ffce !important; }
         .text-yellow-500, .text-yellow-600, .text-yellow-700, .text-yellow-800,
         .text-orange-500, .text-orange-600, .text-orange-700, .text-orange-800,
-        .text-amber-500, .text-amber-600, .text-amber-700 { color: #fbbf24 !important; }
+        .text-amber-500, .text-amber-600, .text-amber-700 { color: #ffd9a0 !important; }
         .text-red-500, .text-red-600, .text-red-700, .text-red-800,
-        .text-rose-500, .text-rose-600, .text-rose-700 { color: #f87171 !important; }
+        .text-rose-500, .text-rose-600, .text-rose-700 { color: #ffb3c5 !important; }
 
-        /* Tailwind gradients (bg-gradient-to-*) — переопределяем CSS-переменные */
-        .from-blue-50, .from-indigo-50, .from-purple-50, .from-pink-50 {
-            --tw-gradient-from: rgba(124,58,237,0.14) !important;
-            --tw-gradient-to: rgba(124,58,237,0) !important;
+        /* Gradients (bg-gradient-to-*) — переопределяем CSS-переменные Tailwind */
+        .from-blue-50, .from-indigo-50, .from-purple-50, .from-pink-50, .from-purple-100 {
+            --tw-gradient-from: rgba(10,132,255,0.22) !important;
+            --tw-gradient-to: rgba(10,132,255,0) !important;
             --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
         }
-        .from-purple-100 { --tw-gradient-from: rgba(124,58,237,0.18) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(124,58,237,0)) !important; }
         .from-green-50, .from-emerald-50 {
-            --tw-gradient-from: rgba(16,185,129,0.14) !important;
-            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(16,185,129,0)) !important;
+            --tw-gradient-from: rgba(48,209,88,0.22) !important;
+            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(48,209,88,0)) !important;
         }
         .from-yellow-50, .from-orange-50, .from-amber-50 {
-            --tw-gradient-from: rgba(245,158,11,0.14) !important;
-            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(245,158,11,0)) !important;
+            --tw-gradient-from: rgba(255,159,10,0.22) !important;
+            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(255,159,10,0)) !important;
         }
         .from-red-50, .from-rose-50 {
-            --tw-gradient-from: rgba(239,68,68,0.14) !important;
-            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(239,68,68,0)) !important;
+            --tw-gradient-from: rgba(255,55,95,0.22) !important;
+            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(255,55,95,0)) !important;
         }
         .to-blue-50, .to-blue-100, .to-indigo-50, .to-indigo-100, .to-purple-50, .to-purple-100, .to-pink-50, .to-pink-100 {
-            --tw-gradient-to: rgba(6,182,212,0.12) !important;
+            --tw-gradient-to: rgba(191,90,242,0.18) !important;
         }
-        .to-green-50, .to-green-100, .to-emerald-50 { --tw-gradient-to: rgba(16,185,129,0.12) !important; }
-        .to-yellow-50, .to-yellow-100, .to-orange-50, .to-orange-100, .to-amber-50 { --tw-gradient-to: rgba(245,158,11,0.12) !important; }
-        .to-red-50, .to-red-100, .to-rose-50 { --tw-gradient-to: rgba(239,68,68,0.12) !important; }
+        .to-green-50, .to-green-100, .to-emerald-50 { --tw-gradient-to: rgba(48,209,88,0.18) !important; }
+        .to-yellow-50, .to-yellow-100, .to-orange-50, .to-orange-100 { --tw-gradient-to: rgba(255,159,10,0.18) !important; }
+        .to-red-50, .to-red-100, .to-rose-50 { --tw-gradient-to: rgba(255,55,95,0.18) !important; }
 
-        /* Hover-варианты светлых фонов */
+        /* Hover */
         .hover\:bg-gray-50:hover, .hover\:bg-gray-100:hover, .hover\:bg-gray-200:hover, .hover\:bg-gray-300:hover {
-            background: rgba(255,255,255,0.04) !important;
+            background: rgba(255,255,255,0.06) !important;
         }
         .hover\:bg-blue-50:hover, .hover\:bg-indigo-50:hover, .hover\:bg-indigo-100:hover,
         .hover\:bg-purple-50:hover, .hover\:bg-purple-100:hover, .hover\:bg-pink-100:hover {
-            background: rgba(124,58,237,0.20) !important;
+            background: rgba(10,132,255,0.25) !important;
         }
-        .hover\:bg-red-50:hover, .hover\:bg-red-100:hover { background: rgba(239,68,68,0.20) !important; }
-        .hover\:bg-blue-600:hover, .hover\:bg-blue-700:hover,
-        .hover\:bg-purple-600:hover, .hover\:bg-purple-700:hover,
-        .hover\:bg-green-600:hover, .hover\:bg-green-700:hover,
-        .hover\:bg-indigo-700:hover { filter: brightness(1.15) !important; }
+        .hover\:bg-red-50:hover, .hover\:bg-red-100:hover { background: rgba(255,55,95,0.25) !important; }
+        .hover\:bg-blue-600:hover, .hover\:bg-blue-700:hover, .hover\:bg-purple-600:hover, .hover\:bg-purple-700:hover,
+        .hover\:bg-green-600:hover, .hover\:bg-green-700:hover, .hover\:bg-indigo-700:hover { filter: brightness(1.12) !important; }
 
-        /* Divide lines */
-        .divide-gray-100 > * + *, .divide-gray-200 > * + * { border-color: var(--line) !important; }
-
-        /* Ring (focus outlines) */
-        .ring-1, .ring-2 { box-shadow: 0 0 0 2px rgba(124,58,237,0.3) !important; }
-
+        /* Inputs */
         input, select, textarea {
-            background: var(--ink) !important;
-            color: var(--text) !important;
-            border: 1px solid var(--line) !important;
-            border-radius: 10px !important;
+            background: rgba(255,255,255,0.06) !important;
+            color: var(--ink) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            backdrop-filter: blur(20px);
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.2),
+              inset 0 0 0 0.5px rgba(255,255,255,0.15) !important;
+            padding: 10px 14px !important;
         }
         input:focus, select:focus, textarea:focus {
-            border-color: var(--brand-1) !important;
             outline: none !important;
-            box-shadow: 0 0 0 3px rgba(124,58,237,0.2) !important;
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.25),
+              inset 0 0 0 1px var(--cyan),
+              0 0 0 4px rgba(100,210,255,0.15) !important;
         }
-        ::placeholder { color: var(--hint); opacity: 1; }
+        ::placeholder { color: var(--ink-mute); opacity: 1; }
 
+        /* Tables */
         table { background: transparent !important; }
-        th { background: var(--ink-3) !important; color: var(--hint) !important; font-weight:600 !important; }
-        td { border-color: var(--line) !important; }
-        tr:hover { background: rgba(124,58,237,0.06) !important; }
+        th {
+            background: rgba(255,255,255,0.04) !important;
+            color: var(--ink-mute) !important;
+            font-weight: 700 !important;
+            text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px;
+        }
+        td { border-color: var(--stroke) !important; }
+        tr:hover { background: rgba(100,210,255,0.06) !important; }
 
-        .badge-discovered    { background: rgba(245,158,11,0.18) !important; color:#fbbf24 !important; }
-        .badge-joined        { background: rgba(124,58,237,0.18) !important; color:#a78bfa !important; }
-        .badge-active        { background: rgba(16,185,129,0.18) !important; color:#34d399 !important; }
-        .badge-banned        { background: rgba(239,68,68,0.18)  !important; color:#f87171 !important; }
-        .badge-private       { background: rgba(168,85,247,0.18) !important; color:#c084fc !important; }
-        .badge-request_sent  { background: rgba(245,158,11,0.18) !important; color:#fbbf24 !important; }
-        .badge-no_permission { background: rgba(239,68,68,0.18)  !important; color:#f87171 !important; }
-        .badge-invalid       { background: rgba(138,147,168,0.18)!important; color:#cbd5e1 !important; }
-        .badge-sent          { background: rgba(16,185,129,0.18) !important; color:#34d399 !important; }
-        .badge-failed        { background: rgba(239,68,68,0.18)  !important; color:#f87171 !important; }
-        .badge-pending       { background: rgba(245,158,11,0.18) !important; color:#fbbf24 !important; }
-
-        .stat-card { transition: transform 0.2s; }
-        .stat-card:hover { transform: translateY(-2px); }
+        /* Badges — capsule Liquid Glass */
+        [class*="badge-"] {
+            display: inline-flex; align-items: center;
+            padding: 4px 12px !important; border-radius: 99px !important;
+            font-size: 11px !important; font-weight: 700 !important; letter-spacing: 0.02em;
+            backdrop-filter: blur(20px) saturate(180%);
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.35),
+              inset 0 0 0 0.5px rgba(255,255,255,0.2),
+              inset 0 -1px 0 rgba(0,0,0,0.2);
+        }
+        .badge-discovered, .badge-pending, .badge-request_sent {
+            background: linear-gradient(180deg, rgba(255,159,10,0.6), rgba(255,159,10,0.25)) !important;
+            color: #fff !important;
+        }
+        .badge-joined, .badge-private {
+            background: linear-gradient(180deg, rgba(191,90,242,0.6), rgba(191,90,242,0.25)) !important;
+            color: #fff !important;
+        }
+        .badge-active, .badge-sent {
+            background: linear-gradient(180deg, rgba(48,209,88,0.6), rgba(48,209,88,0.25)) !important;
+            color: #fff !important;
+        }
+        .badge-banned, .badge-failed, .badge-no_permission {
+            background: linear-gradient(180deg, rgba(255,55,95,0.6), rgba(255,55,95,0.25)) !important;
+            color: #fff !important;
+        }
+        .badge-invalid {
+            background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05)) !important;
+            color: var(--ink-dim) !important;
+        }
 
         .gradient-bg { background: var(--brand-grad) !important; }
 
-        footer { display: none !important; }
-
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
 
-        /* Telegram Mini App: всегда одна колонка для lg/md grid'ов */
+        /* =============== Floating Tab Bar =============== */
+        .tabbar{
+            position: fixed; bottom: 16px; left: 14px; right: 14px;
+            z-index: 50;
+            height: 68px;
+            display: grid; grid-template-columns: repeat(6, 1fr);
+            padding: 9px;
+            border-radius: 34px;
+            background:
+              linear-gradient(180deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.04) 35%, rgba(255,255,255,0.0) 65%, rgba(255,255,255,0.05) 100%),
+              rgba(20,22,32,0.45);
+            backdrop-filter: blur(50px) saturate(160%) brightness(0.95);
+            -webkit-backdrop-filter: blur(50px) saturate(160%) brightness(0.95);
+            box-shadow:
+              inset 0 1.5px 0 rgba(255,255,255,0.4),
+              inset 0 0 0 1px rgba(255,255,255,0.18),
+              inset 0 -1.5px 0 rgba(0,0,0,0.35),
+              0 25px 50px -10px rgba(0,0,0,0.7);
+            margin-bottom: env(safe-area-inset-bottom);
+        }
+        .tabbar::before{
+            content:''; position:absolute; inset:0; border-radius: inherit; pointer-events:none;
+            background: radial-gradient(ellipse 80% 40% at 50% -10%, rgba(255,255,255,0.25), transparent 60%);
+        }
+        .tab{
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+            font-size: 10px; font-weight: 700; color: var(--ink-mute);
+            text-decoration: none !important;
+            border-radius: 26px; transition: 0.2s;
+            position: relative;
+        }
+        .tab svg{ width: 22px; height: 22px; }
+        .tab.active{
+            color: #fff;
+            background: linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.08));
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.55),
+              inset 0 0 0 0.5px rgba(255,255,255,0.25),
+              0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        /* =============== Misc Mini-App enforcement =============== */
         body.miniapp .md\:grid-cols-2,
         body.miniapp .md\:grid-cols-3,
         body.miniapp .md\:grid-cols-4,
@@ -255,30 +409,13 @@
         body.miniapp .max-w-7xl { max-width: 100% !important; }
         body.miniapp { overflow-x: hidden; }
         body.miniapp main, body.miniapp main * { max-width: 100% !important; }
-        body.miniapp .text-3xl { font-size: 1.5rem !important; }
-        body.miniapp .text-2xl { font-size: 1.25rem !important; }
-        body.miniapp .p-6, body.miniapp .p-8 { padding: 14px !important; }
+        body.miniapp .text-3xl { font-size: 1.5rem !important; font-weight: 800; letter-spacing: -0.03em; }
+        body.miniapp .text-2xl { font-size: 1.25rem !important; font-weight: 700; }
+        body.miniapp .p-6, body.miniapp .p-8 { padding: 16px !important; }
         body.miniapp table { display: block; overflow-x: auto; }
 
-        /* Floating Agent control button in header */
-        .agent-ctl {
-            display: inline-flex; align-items: center; gap: 6px;
-            padding: 6px 12px; border-radius: 99px;
-            font-size: 12px; font-weight: 600;
-            background: var(--brand-grad); color: #fff;
-            cursor: pointer; border: none;
-            box-shadow: 0 4px 12px -2px rgba(124,58,237,0.4);
-            transition: filter .2s;
-        }
-        .agent-ctl:hover { filter: brightness(1.1); }
-        .agent-ctl.running { background: var(--money-grad); }
-        .agent-ctl.running:hover { background: var(--danger); }
-        .agent-ctl .dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; }
-        .agent-ctl.running .dot { animation: pulse 1.5s ease-in-out infinite; }
-        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-
         @media (max-width: 640px) {
-            .agent-ctl { padding: 5px 10px; font-size: 11px; }
+            .agent-ctl { padding: 6px 10px; font-size: 11px; }
         }
     </style>
 
@@ -326,23 +463,40 @@
     </footer>
 
     <nav class="tabbar">
-        <a href="/"          class="tab" data-route="/"><div class="ico">📊</div>Главная</a>
-        <a href="/groups"    class="tab" data-route="/groups"><div class="ico">👥</div>Группы</a>
-        <a href="/messages"  class="tab" data-route="/messages"><div class="ico">💬</div>Чаты</a>
-        <a href="/users"     class="tab" data-route="/users"><div class="ico">👤</div>Лиды</a>
-        <a href="/proactive" class="tab" data-route="/proactive"><div class="ico">🚀</div>Посты</a>
-        <a href="/agents"    class="tab" data-route="/agents"><div class="ico">🤖</div>Агенты</a>
+        <a href="/" class="tab" data-route="/">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v8H3zm4-4h2v12H7zm4-6h2v18h-2zm4 4h2v14h-2zm4 8h2v6h-2z"/></svg>
+            Главная
+        </a>
+        <a href="/groups" class="tab" data-route="/groups">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5v1H3zm14 0c0-2 2-4 4-4v5h-4z"/></svg>
+            Группы
+        </a>
+        <a href="/messages" class="tab" data-route="/messages">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H7l-3 3z"/></svg>
+            Чаты
+        </a>
+        <a href="/users" class="tab" data-route="/users">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7z"/></svg>
+            Лиды
+        </a>
+        <a href="/proactive" class="tab" data-route="/proactive">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 14h6l-2 8 10-13h-6z"/></svg>
+            Посты
+        </a>
+        <a href="/agents" class="tab" data-route="/agents">
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="6" width="14" height="12" rx="3"/><circle cx="9" cy="11" r="1.3" fill="#000"/><circle cx="15" cy="11" r="1.3" fill="#000"/></svg>
+            Агенты
+        </a>
     </nav>
 
     <script>
-        // Force single-column mobile layout always (Mini App webview)
         document.body.classList.add('miniapp');
 
         const tg = window.Telegram && window.Telegram.WebApp;
         if (tg) {
             tg.ready();
             tg.expand();
-            try { tg.setHeaderColor('#0f1422'); tg.setBackgroundColor('#0f1422'); } catch(e) {}
+            try { tg.setHeaderColor('#02030a'); tg.setBackgroundColor('#02030a'); } catch(e) {}
             tg.enableClosingConfirmation && tg.enableClosingConfirmation();
 
             const u = tg.initDataUnsafe && tg.initDataUnsafe.user;
@@ -415,10 +569,10 @@
                 const j = await r.json();
                 if (j.running) {
                     btn.classList.add('running');
-                    lbl.textContent = 'Работает · стоп';
+                    lbl.textContent = 'Работает';
                 } else {
                     btn.classList.remove('running');
-                    lbl.textContent = '▶ Запустить';
+                    lbl.textContent = '▶ Старт';
                 }
             } catch(e) { lbl.textContent = '—'; }
         }
@@ -430,9 +584,8 @@
             const action = running ? 'stop' : 'start';
 
             if (running && tg && tg.showConfirm) {
-                await new Promise(res => tg.showConfirm('Остановить агента?', ok => res(ok)))
-                    .then(ok => { if (!ok) throw 'cancel'; })
-                    .catch(() => { throw 'cancel'; });
+                const ok = await new Promise(res => tg.showConfirm('Остановить агента?', res));
+                if (!ok) return;
             }
 
             lbl.textContent = action === 'start' ? 'запуск…' : 'стоп…';
@@ -445,7 +598,7 @@
                 }
                 if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred(j.ok ? 'success' : 'error');
             } catch(e) {
-                if (e !== 'cancel' && tg && tg.showAlert) tg.showAlert(String(e));
+                if (tg && tg.showAlert) tg.showAlert(String(e));
             }
             setTimeout(refreshAgentStatus, 800);
         }
