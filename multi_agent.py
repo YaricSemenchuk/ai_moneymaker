@@ -94,6 +94,9 @@ class SingleAgent:
         self.tasks: List[asyncio.Task] = []
         # Реакции: антифлуд (метки времени последних реакций за последний час).
         self._reaction_timestamps: List[float] = []
+        # Кэш assigned-group_ids агента (TTL 60s) — для фильтра listening/replies
+        self._assigned_group_ids_cache: Optional[set] = None
+        self._assigned_cache_ts: float = 0.0
 
     def _can_react(self) -> bool:
         """Не превышен ли часовой лимит реакций."""
@@ -231,6 +234,25 @@ class SingleAgent:
                 chat_type = getattr(message.chat.type, "name", "")
                 if chat_type not in ("GROUP", "SUPERGROUP"):
                     return
+
+                # Изоляция по назначению: если агенту назначены группы (например, по категории),
+                # реагируем ТОЛЬКО на сообщения из них. Иначе работаем во всём общем пуле.
+                try:
+                    assigned_ids = self._assigned_group_ids_cache
+                    if assigned_ids is None or _time.time() - self._assigned_cache_ts > 60:
+                        assigned_ids = set(self.db.get_assigned_group_ids(self.agent_id))
+                        self._assigned_group_ids_cache = assigned_ids
+                        self._assigned_cache_ts = _time.time()
+                    if assigned_ids:
+                        # резолвим telegram_group_id → group_db_id
+                        db_groups = self.db.get_groups_by_statuses(["joined", "active"], limit=2000)
+                        my_chat_gid = next((g["id"] for g in db_groups
+                                            if g.get("telegram_group_id") == message.chat.id), None)
+                        if my_chat_gid is None or my_chat_gid not in assigned_ids:
+                            logger.debug(f"{self.log_prefix} skip msg from non-assigned chat {message.chat.id}")
+                            return
+                except Exception as e:
+                    logger.debug(f"assignment check error: {e}")
 
                 # Безопасный заголовок
                 try:
