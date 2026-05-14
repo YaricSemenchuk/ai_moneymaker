@@ -15,9 +15,16 @@
         <label class="block text-xs font-semibold text-gray-600 mb-1 uppercase">Категория</label>
         <select id="assign-cat-select" class="w-full mb-3"></select>
 
-        <label class="flex items-center gap-2 text-sm mb-4">
+        <label class="flex items-center gap-2 text-sm mb-2">
             <input type="checkbox" id="assign-cat-only-unassigned" checked>
             <span class="text-gray-700">Только нераспределённые (не перетягивать у других агентов)</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm mb-4 p-2 rounded-lg bg-red-500/10 border border-red-500/30">
+            <input type="checkbox" id="assign-cat-strict" onchange="onStrictToggle()">
+            <span class="text-gray-700">
+                <b>Строго одна категория</b> — снять у этого агента все группы <i>других</i> категорий
+                (они вернутся в общий пул, можно потом раздать другим)
+            </span>
         </label>
 
         <div class="flex gap-2">
@@ -561,18 +568,35 @@ function closeAssignCategoryModal() {
     document.getElementById('assign-cat-modal').classList.add('hidden');
     _assignCatAgentId = null;
 }
+function onStrictToggle() {
+    // Когда включаем "Строго одна категория" — несовместимо с "Только нераспределённые"
+    const strict = document.getElementById('assign-cat-strict').checked;
+    const ou = document.getElementById('assign-cat-only-unassigned');
+    if (strict) { ou.checked = false; ou.disabled = true; }
+    else        { ou.disabled = false; ou.checked = true; }
+}
+
 async function runAssignCategory() {
     if (!_assignCatAgentId) return;
     const category = document.getElementById('assign-cat-select').value;
     const only_unassigned = document.getElementById('assign-cat-only-unassigned').checked;
+    const strict = document.getElementById('assign-cat-strict').checked;
+    if (strict) {
+        const ok = window.Telegram?.WebApp?.showConfirm
+            ? await new Promise(r => Telegram.WebApp.showConfirm(`Снять у агента все группы кроме «${category}» и оставить только эту категорию?`, r))
+            : confirm(`Снять у агента все группы кроме «${category}»?`);
+        if (!ok) return;
+    }
     try {
         const r = await fetch('/api/groups/assign-by-category', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ agent_id: _assignCatAgentId, category, only_unassigned })
+            body: JSON.stringify({ agent_id: _assignCatAgentId, category, only_unassigned, strict })
         });
         const j = await r.json();
         if (j.ok) {
-            const msg = `✅ Назначено ${j.assigned} групп из «${category}» агенту`;
+            const parts = [`✅ Назначено ${j.assigned} из «${category}»`];
+            if (j.unassigned) parts.push(`снято других ${j.unassigned}`);
+            const msg = parts.join(' · ');
             if (window.Telegram?.WebApp?.showAlert) Telegram.WebApp.showAlert(msg); else alert(msg);
             closeAssignCategoryModal();
             loadAgents();

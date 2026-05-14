@@ -772,8 +772,27 @@ def api_assign_by_category():
     if not category:
         return jsonify({"ok": False, "error": "category required"}), 400
     only_unassigned = bool(data.get("only_unassigned", True))
+    strict = bool(data.get("strict", False))  # B: снять группы других категорий у этого агента
 
     conn = get_db_connection()
+    unassigned_count = 0
+    if strict:
+        # Сначала открепляем от агента всё, что НЕ из выбранной категории
+        if category == "__none__":
+            cur = conn.execute(
+                "UPDATE target_groups SET assigned_agent_id=NULL "
+                "WHERE assigned_agent_id=? AND source_category IS NOT NULL",
+                (aid,))
+        else:
+            cur = conn.execute(
+                "UPDATE target_groups SET assigned_agent_id=NULL "
+                "WHERE assigned_agent_id=? AND (source_category != ? OR source_category IS NULL)",
+                (aid, category))
+        unassigned_count = cur.rowcount
+        # При strict — назначаем все группы категории на агента
+        # (включая ранее закреплённые за другими — это явное действие)
+        only_unassigned = False
+
     where = []
     params = []
     if category == "__none__":
@@ -788,7 +807,8 @@ def api_assign_by_category():
     affected = cursor.rowcount
     conn.commit()
     conn.close()
-    return jsonify({"ok": True, "agent_id": aid, "category": category, "assigned": affected})
+    return jsonify({"ok": True, "agent_id": aid, "category": category,
+                    "assigned": affected, "unassigned": unassigned_count})
 
 
 @app.route('/api/groups/auto-distribute', methods=['POST'])
