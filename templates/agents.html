@@ -3,6 +3,38 @@
 {% block title %}Агенты{% endblock %}
 
 {% block content %}
+<!-- Change referral target Modal -->
+<div id="referral-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-800">✏️ Что промоутит агент</h3>
+            <button onclick="closeReferralModal()" class="text-gray-400 text-2xl leading-none">✕</button>
+        </div>
+        <p class="text-sm text-gray-500 mb-3">Агент: <b id="referral-agent-label" class="text-gray-800"></b></p>
+        <p class="text-xs text-gray-500 mb-3">Сейчас: <span id="referral-current" class="font-mono text-gray-700"></span></p>
+
+        <div class="flex flex-col gap-2 mb-3">
+            <button type="button" onclick="document.getElementById('referral-input').value='@moneymakerquest_bot'"
+                    class="text-left text-sm bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded px-3 py-2">
+                🤖 <code>@moneymakerquest_bot</code> — промо бота
+            </button>
+            <button type="button" onclick="document.getElementById('referral-input').value='@moneymaker_app'"
+                    class="text-left text-sm bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded px-3 py-2">
+                👥 <code>@moneymaker_app</code> — промо группы
+            </button>
+        </div>
+
+        <label class="block text-xs font-semibold text-gray-600 mb-1 uppercase">@username цели</label>
+        <input id="referral-input" type="text" placeholder="@moneymakerquest_bot"
+               class="w-full text-sm border border-gray-300 rounded px-3 py-2 font-mono mb-4">
+
+        <div class="flex gap-2">
+            <button onclick="closeReferralModal()" class="flex-1 bg-gray-200 text-sm py-2 rounded-lg">Отмена</button>
+            <button onclick="submitReferralChange()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-sm py-2 rounded-lg font-semibold">Сохранить</button>
+        </div>
+    </div>
+</div>
+
 <!-- Assign-by-category Modal -->
 <div id="assign-cat-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
     <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -508,23 +540,29 @@ async function loadAgents() {
     }
 }
 
-async function changeReferral(agentId, currentTarget) {
-    const newTarget = prompt(
-        `Что должен промоутить Agent #${agentId}?\n\n` +
-        `Сейчас: ${currentTarget}\n\n` +
-        `Введи новый @username:\n` +
-        `• @moneymakerquest_bot — промо бота\n` +
-        `• @moneymaker_app — промо группы`,
-        currentTarget !== '(не задано)' ? currentTarget : '@moneymakerquest_bot'
-    );
-
-    if (!newTarget) return;
-    const target = newTarget.trim();
+let _referralAgentId = null;
+function changeReferral(agentId, currentTarget) {
+    _referralAgentId = agentId;
+    document.getElementById('referral-agent-label').textContent = `#${agentId}`;
+    document.getElementById('referral-current').textContent = currentTarget || '(не задано)';
+    const input = document.getElementById('referral-input');
+    input.value = currentTarget && currentTarget !== '(не задано)' ? currentTarget : '@moneymakerquest_bot';
+    document.getElementById('referral-modal').classList.remove('hidden');
+    setTimeout(() => { try { input.focus(); input.select(); } catch(_) {} }, 50);
+}
+function closeReferralModal() {
+    document.getElementById('referral-modal').classList.add('hidden');
+    _referralAgentId = null;
+}
+async function submitReferralChange() {
+    if (!_referralAgentId) return;
+    const target = (document.getElementById('referral-input').value || '').trim();
     if (!target.startsWith('@')) {
-        alert('❌ Username должен начинаться с @');
+        const msg = '❌ Username должен начинаться с @';
+        if (window.Telegram?.WebApp?.showAlert) Telegram.WebApp.showAlert(msg); else alert(msg);
         return;
     }
-
+    const agentId = _referralAgentId;
     try {
         const res = await fetch('/api/agents/referral', {
             method: 'POST',
@@ -532,15 +570,18 @@ async function changeReferral(agentId, currentTarget) {
             body: JSON.stringify({ agent_id: agentId, target })
         });
         const data = await res.json();
-
         if (data.success) {
-            alert(data.message + '\n\n' + data.info);
+            const msg = (data.message || 'OK') + (data.info ? '\n\n' + data.info : '');
+            if (window.Telegram?.WebApp?.showAlert) Telegram.WebApp.showAlert(msg); else alert(msg);
+            closeReferralModal();
             loadAgents();
         } else {
-            alert(`❌ ${data.error}`);
+            const msg = `❌ ${data.error || 'unknown'}`;
+            if (window.Telegram?.WebApp?.showAlert) Telegram.WebApp.showAlert(msg); else alert(msg);
         }
     } catch (err) {
-        alert(`❌ Ошибка: ${err.message}`);
+        const msg = `❌ Ошибка: ${err.message}`;
+        if (window.Telegram?.WebApp?.showAlert) Telegram.WebApp.showAlert(msg); else alert(msg);
     }
 }
 
