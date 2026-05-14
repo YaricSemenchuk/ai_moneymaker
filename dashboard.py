@@ -407,27 +407,21 @@ def api_groups():
     status_filter = request.args.get('status', 'all')
     conn = get_db_connection()
 
+    base_sql = """
+        SELECT
+            g.*,
+            SUM(CASE WHEN COALESCE(i.interaction_type,'') != 'view' THEN 1 ELSE 0 END) as message_count,
+            COALESCE(SUM(CASE
+                WHEN i.interaction_type='view' AND i.status='ok' AND i.response_text LIKE '+%'
+                THEN CAST(SUBSTR(i.response_text, 2, INSTR(i.response_text,' ')-2) AS INTEGER)
+                ELSE 0 END), 0) as views_count
+        FROM target_groups g
+        LEFT JOIN interactions i ON g.id = i.group_id
+    """
     if status_filter == 'all':
-        rows = conn.execute("""
-            SELECT
-                g.*,
-                COUNT(i.id) as message_count
-            FROM target_groups g
-            LEFT JOIN interactions i ON g.id = i.group_id
-            GROUP BY g.id
-            ORDER BY g.added_at DESC
-        """).fetchall()
+        rows = conn.execute(base_sql + " GROUP BY g.id ORDER BY g.added_at DESC").fetchall()
     else:
-        rows = conn.execute("""
-            SELECT
-                g.*,
-                COUNT(i.id) as message_count
-            FROM target_groups g
-            LEFT JOIN interactions i ON g.id = i.group_id
-            WHERE g.status = ?
-            GROUP BY g.id
-            ORDER BY g.added_at DESC
-        """, (status_filter,)).fetchall()
+        rows = conn.execute(base_sql + " WHERE g.status = ? GROUP BY g.id ORDER BY g.added_at DESC", (status_filter,)).fetchall()
 
     conn.close()
 
@@ -445,6 +439,7 @@ def api_groups():
             "added_at": d.get("added_at"),
             "last_monitored": d.get("last_monitored"),
             "message_count": d.get("message_count"),
+            "views_count": int(d.get("views_count") or 0),
             "is_channel": bool(d.get("is_channel") or 0),
             "linked_chat_id": d.get("linked_chat_id"),
             "assigned_agent_id": d.get("assigned_agent_id"),

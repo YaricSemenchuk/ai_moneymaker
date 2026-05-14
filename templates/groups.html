@@ -207,13 +207,14 @@
                     <th class="text-right px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Участников</th>
                     <th class="text-center px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Статус</th>
                     <th class="text-right px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Сообщений</th>
+                    <th class="text-right px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Просмотры</th>
                     <th class="text-left px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Добавлена</th>
                     <th class="text-center px-6 py-3 text-xs font-semibold text-gray-700 uppercase">Действия</th>
                 </tr>
             </thead>
             <tbody id="groups-table-body" class="divide-y divide-gray-200">
                 <tr>
-                    <td colspan="7" class="text-center py-12 text-gray-400">⏳ Загрузка...</td>
+                    <td colspan="8" class="text-center py-12 text-gray-400">⏳ Загрузка...</td>
                 </tr>
             </tbody>
         </table>
@@ -268,7 +269,7 @@ function renderGroups() {
     const tbody = document.getElementById('groups-table-body');
 
     if (groups.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-12 text-gray-400">Нет групп для отображения</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-12 text-gray-400">Нет групп для отображения</td></tr>';
         return;
     }
 
@@ -296,6 +297,11 @@ function renderGroups() {
             <td class="px-6 py-4 text-right" data-label="Сообщ.">
                 <span class="font-bold ${g.message_count > 0 ? 'text-blue-600' : 'text-gray-400'}">
                     ${g.message_count || 0}
+                </span>
+            </td>
+            <td class="px-6 py-4 text-right" data-label="Просмотры">
+                <span class="font-bold ${g.views_count > 0 ? 'text-purple-500' : 'text-gray-400'}">
+                    ${g.views_count > 0 ? '👁 ' + g.views_count.toLocaleString() : '—'}
                 </span>
             </td>
             <td class="px-6 py-4 text-sm text-gray-500" data-label="Добавлена">${formatDate(g.added_at)}</td>
