@@ -26,7 +26,10 @@ def _normalize_for_check(s: str) -> str:
     return s
 
 class AgentDatabase:
-    def __init__(self, db_path: str = "moneymaker_agent.db"):
+    def __init__(self, db_path: str = None):
+        if db_path is None:
+            import os as _os
+            db_path = _os.getenv("DB_PATH", "moneymaker_agent.db")
         self.db_path = db_path
         self.init_db()
 
