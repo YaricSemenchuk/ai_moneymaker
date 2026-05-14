@@ -404,6 +404,19 @@ async function loadAgents() {
                         </button>
                     </div>
 
+                    <!-- Views toggle -->
+                    <div class="px-6 py-2 border-t bg-purple-50 flex items-center justify-between">
+                        <div class="text-xs text-gray-700">
+                            <span class="text-lg">${a.views_enabled ? '👁' : '🚫'}</span>
+                            Авто-просмотры постов:
+                            <b>${a.views_enabled ? 'вкл' : 'выкл'}</b>
+                        </div>
+                        <button onclick="toggleViews(${a.id}, ${a.views_enabled ? 'false' : 'true'})"
+                                class="text-xs bg-white hover:bg-purple-100 border border-purple-300 text-purple-700 px-3 py-1 rounded transition">
+                            ${a.views_enabled ? 'Выключить' : 'Включить'}
+                        </button>
+                    </div>
+
                     <!-- Assigned groups -->
                     <div class="px-6 py-3 border-t bg-indigo-50">
                         <div class="flex items-center justify-between mb-2">
@@ -514,6 +527,20 @@ async function toggleReactions(agentId, enable) {
     } catch (err) {
         alert(`❌ ${err.message}`);
     }
+}
+
+async function toggleViews(agentId, enable) {
+    const enabled = enable === true || enable === 'true';
+    try {
+        const res = await fetch(`/api/agents/${agentId}/views`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled })
+        });
+        const data = await res.json();
+        if (data.ok) loadAgents();
+        else alert('❌ Не удалось переключить просмотры');
+    } catch (err) { alert(`❌ ${err.message}`); }
 }
 
 async function toggleAssignedGroups(agentId) {

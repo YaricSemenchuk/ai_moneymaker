@@ -406,6 +406,43 @@ class SingleAgent:
         # Scout-цикл запускаем у всех — внутри он сам решает дежурит ли
         # сегодня этот агент (детерминированный random по дате).
         self.tasks.append(asyncio.create_task(self._periodic_scout_cycle()))
+        self.tasks.append(asyncio.create_task(self._periodic_views_cycle()))
+
+    async def _periodic_views_cycle(self):
+        """Раз в 30-90 минут (рандом) делаем проход просмотров, если флаг включён."""
+        from views_module import auto_views_pass
+        # стартовая пауза чтобы агенты не стартовали одновременно
+        await asyncio.sleep(random.randint(60, 600))
+        while True:
+            try:
+                if not self.db.get_agent_views_enabled(self.agent_id):
+                    await asyncio.sleep(600)
+                    continue
+
+                # joined-каналы агента
+                memberships = self.db.get_agent_memberships(
+                    self.agent_id, statuses=['joined', 'active']
+                ) or []
+                # подмешаем username/status в плоский dict для модуля
+                groups = []
+                for m in memberships:
+                    groups.append({
+                        'id': m.get('group_id') or m.get('id'),
+                        'username': m.get('username'),
+                        'status': m.get('status'),
+                        'title': m.get('title'),
+                    })
+                groups = [g for g in groups if g.get('username')]
+
+                if groups:
+                    await auto_views_pass(
+                        self.agent_id, self.client, self.db, groups,
+                        log_prefix=self.log_prefix, max_groups=5,
+                    )
+            except Exception as e:
+                logger.warning(f"{self.log_prefix} views cycle error: {e}")
+            # 30-90 минут до следующего прогона
+            await asyncio.sleep(random.randint(1800, 5400))
 
     def _partition_groups(self, groups: List[Dict]) -> List[Dict]:
         """

@@ -681,6 +681,7 @@ def api_agents():
             "memberships": membership_by_agent.get(d.get("id"), {}),
             "assigned_groups_count": assigned_by_agent.get(d.get("id"), 0),
             "reactions_enabled": bool(d.get("reactions_enabled") if d.get("reactions_enabled") is not None else 1),
+            "views_enabled": bool(d.get("views_enabled")) if d.get("views_enabled") is not None else False,
         })
     return jsonify(result)
 
@@ -1612,6 +1613,59 @@ def api_test_proactive():
         return jsonify({"success": False, "error": "Timeout (60s)"}), 500
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================
+# 👁 VIEWS — boost / toggle / KPI
+# ============================================
+@app.route('/api/views/stats')
+def api_views_stats():
+    from agent_database import AgentDatabase
+    db = AgentDatabase()
+    return jsonify({"views_24h": db.count_views_24h()})
+
+
+@app.route('/api/agents/<int:agent_id>/views', methods=['POST'])
+def api_set_agent_views(agent_id):
+    from agent_database import AgentDatabase
+    payload = request.get_json(silent=True) or {}
+    enabled = bool(payload.get("enabled", False))
+    db = AgentDatabase()
+    ok = db.set_agent_views_enabled(agent_id, enabled)
+    return jsonify({"ok": ok, "agent_id": agent_id, "views_enabled": enabled})
+
+
+@app.route('/api/views/run', methods=['POST'])
+def api_views_run():
+    """Ручная накрутка просмотров.
+    body: {group_id, count?, message_ids?, agent_ids?[]}
+    Спавнит отдельный процесс который выполняет в asyncio и пишет в interactions."""
+    payload = request.get_json(silent=True) or {}
+    group_id = int(payload.get("group_id") or 0)
+    count = int(payload.get("count") or 20)
+    message_ids = payload.get("message_ids") or []
+    agent_ids = payload.get("agent_ids") or []
+
+    if not group_id:
+        return jsonify({"ok": False, "error": "group_id required"}), 400
+    if count > 200:
+        count = 200
+
+    import json as _json
+    args = [sys.executable, "-u", "-m", "views_runner",
+            "--group-id", str(group_id),
+            "--count", str(count)]
+    if message_ids:
+        args += ["--msg-ids", ",".join(str(x) for x in message_ids)]
+    if agent_ids:
+        args += ["--agents", ",".join(str(x) for x in agent_ids)]
+
+    log = open(_AGENT_LOG_FILE if False else os.path.join(os.path.dirname(DB_PATH) or '.', 'views.log'), "ab")
+    proc = subprocess.Popen(
+        args, cwd=app.root_path, stdout=log, stderr=subprocess.STDOUT,
+        stdin=subprocess.DEVNULL, start_new_session=True,
+    )
+    return jsonify({"ok": True, "pid": proc.pid, "group_id": group_id, "count": count, "agents": agent_ids or "all-enabled"})
 
 
 # ============================================

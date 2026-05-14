@@ -92,6 +92,12 @@ class AgentDatabase:
         except sqlite3.OperationalError:
             pass
 
+        # Миграция: per-account флаг авто-просмотров (по умолчанию выключено)
+        try:
+            cursor.execute('ALTER TABLE agent_accounts ADD COLUMN views_enabled INTEGER DEFAULT 0')
+        except sqlite3.OperationalError:
+            pass
+
         # Interactions table (logs of messages sent by agents)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS interactions (
@@ -1488,6 +1494,51 @@ class AgentDatabase:
         if row is None:
             return True
         return bool(row[0]) if row[0] is not None else True
+
+    def get_agent_views_enabled(self, agent_id: int) -> bool:
+        """Разрешены ли авто-просмотры для агента (по умолчанию False)."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT views_enabled FROM agent_accounts WHERE id = ?', (agent_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return bool(row[0]) if row and row[0] is not None else False
+
+    def set_agent_views_enabled(self, agent_id: int, enabled: bool) -> bool:
+        """Включает/выключает авто-просмотры для агента."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE agent_accounts SET views_enabled = ? WHERE id = ?', (1 if enabled else 0, agent_id))
+        ok = cursor.rowcount > 0
+        conn.commit()
+        conn.close()
+        return ok
+
+    def log_views(self, agent_id: int, group_id: int, count: int, status: str = 'ok'):
+        """Логирует пачку просмотров как одну запись в interactions."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO interactions (agent_id, group_id, interaction_type, status, response_text)
+            VALUES (?, ?, 'view', ?, ?)
+        ''', (agent_id, group_id, status, f'+{count} views'))
+        conn.commit()
+        conn.close()
+
+    def count_views_24h(self) -> int:
+        """Сумма просмотров за последние 24ч (для KPI)."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT COALESCE(SUM(CAST(SUBSTR(response_text, 2, INSTR(response_text, ' ')-2) AS INTEGER)), 0)
+            FROM interactions
+            WHERE interaction_type='view' AND status='ok'
+              AND created_at >= datetime('now', '-1 day')
+              AND response_text LIKE '+%'
+        """)
+        n = cursor.fetchone()[0] or 0
+        conn.close()
+        return int(n)
 
     # --- Scout Runs (история парсинга) ---
 
