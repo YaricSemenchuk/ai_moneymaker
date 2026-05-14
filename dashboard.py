@@ -415,6 +415,7 @@ def api_groups():
                 WHEN i.interaction_type='view' AND i.status='ok' AND i.response_text LIKE '+%'
                 THEN CAST(SUBSTR(i.response_text, 2, INSTR(i.response_text,' ')-2) AS INTEGER)
                 ELSE 0 END), 0) as views_count,
+            SUM(CASE WHEN i.interaction_type='reaction' AND i.status='ok' THEN 1 ELSE 0 END) as reactions_count,
             (SELECT COUNT(DISTINCT a.id) FROM agent_accounts a
               JOIN agent_group_membership m ON m.agent_id = a.id
               WHERE a.views_enabled = 1
@@ -447,6 +448,7 @@ def api_groups():
             "message_count": d.get("message_count"),
             "views_count": int(d.get("views_count") or 0),
             "views_active_agents": int(d.get("views_active_agents") or 0),
+            "reactions_count": int(d.get("reactions_count") or 0),
             "is_channel": bool(d.get("is_channel") or 0),
             "linked_chat_id": d.get("linked_chat_id"),
             "assigned_agent_id": d.get("assigned_agent_id"),
@@ -1635,6 +1637,34 @@ def api_set_agent_views(agent_id):
     db = AgentDatabase()
     ok = db.set_agent_views_enabled(agent_id, enabled)
     return jsonify({"ok": ok, "agent_id": agent_id, "views_enabled": enabled})
+
+
+@app.route('/api/reactions/run', methods=['POST'])
+def api_reactions_run():
+    """Ручная накрутка лайков на последние посты в группе.
+    body: {group_id, count?, message_ids?, agent_ids?[], emoji?}"""
+    payload = request.get_json(silent=True) or {}
+    group_id = int(payload.get("group_id") or 0)
+    count = int(payload.get("count") or 10)
+    message_ids = payload.get("message_ids") or []
+    agent_ids = payload.get("agent_ids") or []
+    emoji = (payload.get("emoji") or "").strip()
+    if not group_id:
+        return jsonify({"ok": False, "error": "group_id required"}), 400
+    if count > 50:
+        count = 50  # реакции жёстче лимитируем чем views
+
+    args = [sys.executable, "-u", "-m", "reactions_runner",
+            "--group-id", str(group_id),
+            "--count", str(count)]
+    if message_ids: args += ["--msg-ids", ",".join(str(x) for x in message_ids)]
+    if agent_ids:   args += ["--agents", ",".join(str(x) for x in agent_ids)]
+    if emoji:       args += ["--emoji", emoji]
+
+    log = open(os.path.join(os.path.dirname(DB_PATH) or '.', 'reactions.log'), "ab")
+    proc = subprocess.Popen(args, cwd=app.root_path, stdout=log, stderr=subprocess.STDOUT,
+                            stdin=subprocess.DEVNULL, start_new_session=True)
+    return jsonify({"ok": True, "pid": proc.pid, "group_id": group_id, "count": count})
 
 
 @app.route('/api/views/run', methods=['POST'])

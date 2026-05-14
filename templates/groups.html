@@ -3,6 +3,41 @@
 {% block title %}Группы{% endblock %}
 
 {% block content %}
+<!-- Reactions Modal -->
+<div id="reactions-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-800">❤️ Накрутить лайки</h3>
+            <button onclick="closeReactionsModal()" class="text-gray-400 text-2xl leading-none">✕</button>
+        </div>
+        <p class="text-sm text-gray-500 mb-4">Группа: <b id="reactions-modal-title" class="text-gray-800"></b></p>
+
+        <label class="block text-xs font-semibold text-gray-600 mb-1 uppercase">Сколько последних постов</label>
+        <select id="reactions-count" class="w-full mb-3">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+            <option value="50">50 (макс)</option>
+        </select>
+
+        <label class="block text-xs font-semibold text-gray-600 mb-1 uppercase">Эмодзи</label>
+        <div id="reactions-emojis" class="flex gap-2 flex-wrap mb-3"></div>
+        <input id="reactions-emoji-custom" type="text" placeholder="или свой: 🔥" class="w-full mb-3" maxlength="4">
+
+        <label class="block text-xs font-semibold text-gray-600 mb-1 uppercase">Или конкретные ID через запятую</label>
+        <input id="reactions-msgids" type="text" placeholder="напр. 1024,1025" class="w-full mb-3">
+
+        <label class="block text-xs font-semibold text-gray-600 mb-2 uppercase">Какие агенты использовать</label>
+        <div id="reactions-agents" class="mb-4 space-y-1 max-h-32 overflow-auto"></div>
+
+        <div class="flex gap-2">
+            <button onclick="closeReactionsModal()" class="flex-1 bg-gray-200 text-sm py-2 rounded-lg">Отмена</button>
+            <button onclick="runReactions()" class="flex-1 bg-pink-500 text-white text-sm py-2 rounded-lg font-semibold">▶ Запустить</button>
+        </div>
+        <p class="text-[11px] text-yellow-400 mt-3 text-center">⚠ Реакции видны другим. Лимит 8/час на агента, паузы 5-20 сек</p>
+    </div>
+</div>
+
 <!-- Views Modal — на верхнем уровне content, чтобы position:fixed не ломался ancestor'ом с backdrop-filter -->
 <div id="views-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
     <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -309,6 +344,8 @@ function renderGroups() {
                 <a href="/messages?group_id=${g.id}" class="text-blue-500 hover:text-blue-700 text-sm mr-3">📬</a>
                 <button onclick="openViewsModal(${g.id}, '${escapeHtml(g.title).replace(/'/g,"\\'")}')"
                         class="text-purple-500 hover:text-purple-700 text-sm" title="Накрутить просмотры">👁 Views</button>
+                <button onclick="openReactionsModal(${g.id}, '${escapeHtml(g.title).replace(/'/g,"\\'")}')"
+                        class="text-pink-500 hover:text-pink-700 text-sm ml-2" title="Накрутить лайки">❤️ Likes${g.reactions_count > 0 ? ' '+g.reactions_count : ''}</button>
                 ${g.views_active_agents > 0
                     ? `<span class="ml-2 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/40" title="Авто-просмотры включены у ${g.views_active_agents} агента(ов)">● АВТО ${g.views_active_agents}</span>`
                     : `<span class="ml-2 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-500/15 text-gray-400 border border-gray-500/30" title="Ни один агент с включёнными views не подключён к этой группе">○ выкл</span>`}
@@ -679,6 +716,73 @@ async function runViews() {
         } else {
             alert('Ошибка: ' + (j.error || 'unknown'));
         }
+    } catch(e) { alert('Ошибка: ' + e); }
+}
+
+// ===== Reactions modal =====
+const REACTION_EMOJI_POOL = ['👍','❤️','🔥','😁','😍','🎉','🤔','😢'];
+let _reactionsGroupId = null;
+let _reactionsEmojiChosen = '';
+async function openReactionsModal(groupId, title) {
+    _reactionsGroupId = groupId;
+    _reactionsEmojiChosen = '';
+    document.getElementById('reactions-modal-title').textContent = title;
+    document.getElementById('reactions-msgids').value = '';
+    document.getElementById('reactions-count').value = '10';
+    document.getElementById('reactions-emoji-custom').value = '';
+
+    const pool = document.getElementById('reactions-emojis');
+    pool.innerHTML = REACTION_EMOJI_POOL.map(e => `
+        <button type="button" data-emoji="${e}" onclick="pickReactionEmoji('${e}')"
+                class="text-2xl px-3 py-1 rounded-lg bg-gray-200 hover:bg-pink-200 transition">${e}</button>
+    `).join('') + `<button type="button" data-emoji="" onclick="pickReactionEmoji('')"
+                class="text-xs px-3 py-1 rounded-lg bg-gray-200 hover:bg-gray-300 self-center">🎲 случайный</button>`;
+    pickReactionEmoji('');
+
+    const cont = document.getElementById('reactions-agents');
+    cont.innerHTML = '<div class="text-xs text-gray-400">загрузка…</div>';
+    try {
+        const r = await fetch('/api/agents'); const j = await r.json();
+        const agents = j.agents || j || [];
+        cont.innerHTML = agents.length ? agents.map(a => `
+            <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" value="${a.id}" checked class="reactions-agent-cb">
+                <span class="text-gray-800">${a.phone_number || a.session_name || 'agent #'+a.id}</span>
+                <span class="text-xs text-gray-400">${a.status || ''}</span>
+            </label>`).join('') : '<div class="text-xs text-gray-400">нет агентов</div>';
+    } catch(e) { cont.innerHTML = '<div class="text-xs text-red-500">err: '+e+'</div>'; }
+    document.getElementById('reactions-modal').classList.remove('hidden');
+}
+function closeReactionsModal() {
+    document.getElementById('reactions-modal').classList.add('hidden');
+    _reactionsGroupId = null;
+}
+function pickReactionEmoji(e) {
+    _reactionsEmojiChosen = e;
+    document.querySelectorAll('#reactions-emojis button').forEach(btn => {
+        btn.classList.toggle('ring-2', btn.getAttribute('data-emoji') === e);
+        btn.classList.toggle('ring-pink-400', btn.getAttribute('data-emoji') === e);
+    });
+}
+async function runReactions() {
+    if (!_reactionsGroupId) return;
+    const count = parseInt(document.getElementById('reactions-count').value || '10');
+    const msgIdsRaw = (document.getElementById('reactions-msgids').value || '').trim();
+    const message_ids = msgIdsRaw ? msgIdsRaw.split(',').map(s=>parseInt(s.trim())).filter(n=>n>0) : [];
+    const agent_ids = Array.from(document.querySelectorAll('.reactions-agent-cb:checked')).map(cb=>parseInt(cb.value));
+    const custom = (document.getElementById('reactions-emoji-custom').value || '').trim();
+    const emoji = custom || _reactionsEmojiChosen || '';
+    try {
+        const r = await fetch('/api/reactions/run', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({group_id: _reactionsGroupId, count, message_ids, agent_ids, emoji})
+        });
+        const j = await r.json();
+        if (j.ok) {
+            const msg = `▶ Запущено: ${agent_ids.length||'все'} агента, до ${message_ids.length||count} постов, ${emoji||'случайный эмодзи'}`;
+            if (window.Telegram?.WebApp?.showAlert) Telegram.WebApp.showAlert(msg); else alert(msg);
+            closeReactionsModal();
+        } else { alert('Ошибка: ' + (j.error || 'unknown')); }
     } catch(e) { alert('Ошибка: ' + e); }
 }
 
