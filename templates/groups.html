@@ -335,7 +335,8 @@ function renderGroups() {
                 </span>
             </td>
             <td class="px-6 py-4 text-right" data-label="Просмотры">
-                <span class="font-bold ${g.views_count > 0 ? 'text-purple-500' : 'text-gray-400'}">
+                <span class="font-bold ${g.views_count > 0 ? 'text-purple-500' : 'text-gray-400'}"
+                      title="Сумма просмотров от всех агентов. Считается: каждый агент × каждый пост = 1. Реальный счётчик на посте в Telegram = ваши агенты + органика.">
                     ${g.views_count > 0 ? '👁 ' + g.views_count.toLocaleString() : '—'}
                 </span>
             </td>
@@ -345,7 +346,8 @@ function renderGroups() {
                 <button onclick="openViewsModal(${g.id}, '${escapeHtml(g.title).replace(/'/g,"\\'")}')"
                         class="text-purple-500 hover:text-purple-700 text-sm" title="Накрутить просмотры">👁 Views</button>
                 <button onclick="openReactionsModal(${g.id}, '${escapeHtml(g.title).replace(/'/g,"\\'")}')"
-                        class="text-pink-500 hover:text-pink-700 text-sm ml-2" title="Накрутить лайки">❤️ Likes${g.reactions_count > 0 ? ' '+g.reactions_count : ''}</button>
+                        class="text-pink-500 hover:text-pink-700 text-sm ml-2"
+                        title="Накрутить лайки. Счётчик — сумма реакций от всех агентов: 7 агентов × 10 постов = до 70. На каждом посте лайк ставит каждый агент по разу.">❤️ Likes${g.reactions_count > 0 ? ' '+g.reactions_count : ''}</button>
                 ${g.views_active_agents > 0
                     ? `<span class="ml-2 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/40" title="Авто-просмотры включены у ${g.views_active_agents} агента(ов)">● АВТО ${g.views_active_agents}</span>`
                     : `<span class="ml-2 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-500/15 text-gray-400 border border-gray-500/30" title="Ни один агент с включёнными views не подключён к этой группе">○ выкл</span>`}
