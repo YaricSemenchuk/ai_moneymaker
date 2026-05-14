@@ -727,7 +727,7 @@ def api_agent_groups(agent_id):
     conn = get_db_connection()
     rows = conn.execute("""
         SELECT g.id, g.title, g.username, g.members_count, g.status,
-               g.assigned_agent_id,
+               g.assigned_agent_id, g.source_category,
                (SELECT COUNT(*) FROM proactive_posts
                   WHERE group_id = g.id AND agent_id = ?
                   AND created_at > datetime('now', '-24 hours')) as posts_24h

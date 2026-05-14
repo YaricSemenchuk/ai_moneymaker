@@ -596,12 +596,33 @@ async function openAssignCategoryModal(agentId, agentLabel) {
     const sel = document.getElementById('assign-cat-select');
     sel.innerHTML = '<option>загрузка…</option>';
     try {
-        const r = await fetch('/api/groups/categories');
-        const cats = await r.json();
+        // Параллельно: все категории + текущие группы агента (чтобы понять его доминирующую)
+        const [catsRes, agentGroupsRes] = await Promise.all([
+            fetch('/api/groups/categories'),
+            fetch(`/api/agents/${agentId}/groups`),
+        ]);
+        const cats = await catsRes.json();
+        const agentGroups = await agentGroupsRes.json().catch(() => []);
+
+        // Доминирующая категория агента — самая частая среди уже назначенных групп
+        let dominant = null;
+        if (Array.isArray(agentGroups) && agentGroups.length) {
+            const counts = {};
+            for (const g of agentGroups) {
+                const key = g.source_category || '__none__';
+                counts[key] = (counts[key] || 0) + 1;
+            }
+            dominant = Object.entries(counts).sort((a,b) => b[1] - a[1])[0][0];
+        }
+
         const named = cats.filter(c => c.category).sort((a,b)=>a.category.localeCompare(b.category));
         const without = cats.find(c => !c.category);
-        sel.innerHTML = named.map(c => `<option value="${escapeHtml(c.category)}">${escapeHtml(c.category)} · ${c.count}</option>`).join('') +
-            (without && without.count > 0 ? `<option value="__none__">— без категории · ${without.count}</option>` : '');
+        sel.innerHTML = named.map(c => {
+            const isSel = c.category === dominant ? ' selected' : '';
+            return `<option value="${escapeHtml(c.category)}"${isSel}>${escapeHtml(c.category)} · ${c.count}</option>`;
+        }).join('') + (without && without.count > 0
+            ? `<option value="__none__"${dominant === '__none__' ? ' selected' : ''}>— без категории · ${without.count}</option>`
+            : '');
     } catch(e) { sel.innerHTML = '<option>err</option>'; }
     document.getElementById('assign-cat-modal').classList.remove('hidden');
 }
