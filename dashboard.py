@@ -414,7 +414,13 @@ def api_groups():
             COALESCE(SUM(CASE
                 WHEN i.interaction_type='view' AND i.status='ok' AND i.response_text LIKE '+%'
                 THEN CAST(SUBSTR(i.response_text, 2, INSTR(i.response_text,' ')-2) AS INTEGER)
-                ELSE 0 END), 0) as views_count
+                ELSE 0 END), 0) as views_count,
+            (SELECT COUNT(DISTINCT a.id) FROM agent_accounts a
+              JOIN agent_group_membership m ON m.agent_id = a.id
+              WHERE a.views_enabled = 1
+                AND a.status NOT IN ('banned','disabled')
+                AND m.group_id = g.id
+                AND m.status IN ('joined','active')) as views_active_agents
         FROM target_groups g
         LEFT JOIN interactions i ON g.id = i.group_id
     """
@@ -440,6 +446,7 @@ def api_groups():
             "last_monitored": d.get("last_monitored"),
             "message_count": d.get("message_count"),
             "views_count": int(d.get("views_count") or 0),
+            "views_active_agents": int(d.get("views_active_agents") or 0),
             "is_channel": bool(d.get("is_channel") or 0),
             "linked_chat_id": d.get("linked_chat_id"),
             "assigned_agent_id": d.get("assigned_agent_id"),
