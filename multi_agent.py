@@ -573,11 +573,12 @@ class SingleAgent:
                 sid = task["id"]
                 keywords_str = task["keywords"]
                 max_results = task["max_results"]
+                src_category = task.get("source_category")
 
                 # Парсим ключевые слова
                 keywords = [k.strip() for k in keywords_str.split(",") if k.strip()]
 
-                logger.info(f"{self.log_prefix}   🔍 Search request #{sid}: {len(keywords)} keywords (max={max_results})")
+                logger.info(f"{self.log_prefix}   🔍 Search request #{sid}: {len(keywords)} keywords (max={max_results}, cat={src_category})")
                 logger.info(f"{self.log_prefix}   Keywords: {keywords[:5]}{'...' if len(keywords) > 5 else ''}")
 
                 try:
@@ -585,6 +586,8 @@ class SingleAgent:
 
                     added = 0
                     for g in found:
+                        if src_category and not g.get("matched_category"):
+                            g["matched_category"] = src_category
                         if await self.scouting.filter_group(g):
                             if await self.scouting.add_group_to_db(g):
                                 added += 1

@@ -101,6 +101,12 @@ class AgentDatabase:
         except sqlite3.OperationalError:
             pass
 
+        # Миграция: source_category для pending_searches
+        try:
+            cursor.execute('ALTER TABLE pending_searches ADD COLUMN source_category TEXT')
+        except sqlite3.OperationalError:
+            pass
+
         # Миграция: source_keyword / source_category для target_groups
         # (что именно нашло группу при scouting — нужно для назначения по категории)
         for col_def in [
@@ -1285,14 +1291,14 @@ class AgentDatabase:
 
     # --- Pending Searches Queue ---
 
-    def add_pending_search(self, keywords: str, max_results: int = 10) -> int:
+    def add_pending_search(self, keywords: str, max_results: int = 10, source_category: Optional[str] = None) -> int:
         """Добавляет поиск в очередь."""
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO pending_searches (keywords, max_results, status)
-            VALUES (?, ?, 'pending')
-        ''', (keywords, max_results))
+            INSERT INTO pending_searches (keywords, max_results, status, source_category)
+            VALUES (?, ?, 'pending', ?)
+        ''', (keywords, max_results, source_category))
         conn.commit()
         sid = cursor.lastrowid
         conn.close()
@@ -1303,7 +1309,8 @@ class AgentDatabase:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT id, keywords, max_results, status, groups_found, groups_added, error_message, created_at
+            SELECT id, keywords, max_results, status, groups_found, groups_added, error_message, created_at,
+                   source_category
             FROM pending_searches WHERE status = 'pending'
             ORDER BY created_at ASC
         ''')
@@ -1313,6 +1320,7 @@ class AgentDatabase:
             'id': r[0], 'keywords': r[1], 'max_results': r[2],
             'status': r[3], 'groups_found': r[4], 'groups_added': r[5],
             'error_message': r[6], 'created_at': r[7],
+            'source_category': r[8],
         } for r in rows]
 
     def get_all_pending_searches(self, limit: int = 50) -> List[Dict]:

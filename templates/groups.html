@@ -103,6 +103,15 @@
         </div>
 
         <div class="mb-4">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">📦 Категория (опционально):</label>
+            <select id="search-category-select" onchange="onSearchCategoryChange()"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                <option value="">— ручной ввод ниже —</option>
+            </select>
+            <p class="text-xs text-gray-400 mt-1">Выбери категорию — все её слова подставятся в поле ниже. Найденные группы получат эту категорию в БД.</p>
+        </div>
+
+        <div class="mb-4">
             <label class="block text-sm font-semibold text-gray-700 mb-2">Ключевые слова:</label>
             <textarea id="search-keywords-input"
                       rows="4"
@@ -550,6 +559,40 @@ function showSearchModal() {
     document.getElementById('search-keywords-input').focus();
     document.getElementById('search-result').classList.add('hidden');
     loadSearchHistory();
+    loadSearchCategories();
+}
+
+// Кэш категорий с их ключевыми словами
+let _searchCategoryPool = {};
+async function loadSearchCategories() {
+    const sel = document.getElementById('search-category-select');
+    try {
+        const r = await fetch('/api/keywords');
+        const data = await r.json();
+        // /api/keywords возвращает массив {category, keyword, enabled}
+        const pool = {};
+        (data || []).forEach(k => {
+            if (!k.enabled) return;
+            if (!pool[k.category]) pool[k.category] = [];
+            pool[k.category].push(k.keyword);
+        });
+        _searchCategoryPool = pool;
+        const cats = Object.keys(pool).sort();
+        sel.innerHTML = '<option value="">— ручной ввод ниже —</option>' +
+            cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} · ${pool[c].length} слов</option>`).join('');
+    } catch(e) {
+        console.error('loadSearchCategories err', e);
+        sel.innerHTML = '<option value="">— ручной ввод ниже —</option>';
+    }
+}
+
+function onSearchCategoryChange() {
+    const cat = document.getElementById('search-category-select').value;
+    if (!cat) return;  // ручной ввод, не трогаем textarea
+    const kws = _searchCategoryPool[cat] || [];
+    // Telegram ограничение ~20 слов за запрос — берём первые 20 случайно
+    const shuffled = kws.slice().sort(() => Math.random() - 0.5).slice(0, 20);
+    document.getElementById('search-keywords-input').value = shuffled.join(', ');
 }
 
 function hideSearchModal() {
@@ -618,10 +661,11 @@ async function submitSearch() {
     result.textContent = '⏳ Добавляю в очередь...';
 
     try {
+        const category = document.getElementById('search-category-select').value || null;
         const res = await fetch('/api/groups/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keywords, max_results: maxResults })
+            body: JSON.stringify({ keywords, max_results: maxResults, category })
         });
         const data = await res.json();
 

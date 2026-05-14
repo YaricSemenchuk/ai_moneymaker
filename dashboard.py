@@ -1246,6 +1246,7 @@ def api_search_groups():
     data = request.get_json()
     keywords_input = (data.get("keywords") or "").strip()
     max_results = int(data.get("max_results") or 10)
+    source_category = (data.get("category") or "").strip() or None
 
     if not keywords_input:
         return jsonify({"success": False, "error": "Укажите ключевые слова"}), 400
@@ -1266,7 +1267,7 @@ def api_search_groups():
         from agent_database import AgentDatabase
         db = AgentDatabase(DB_PATH)
         keywords_str = ",".join(keywords)
-        sid = db.add_pending_search(keywords_str, max_results)
+        sid = db.add_pending_search(keywords_str, max_results, source_category=source_category)
 
         return jsonify({
             "success": True,
