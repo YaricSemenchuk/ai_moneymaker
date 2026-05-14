@@ -1639,10 +1639,29 @@ def api_set_agent_views(agent_id):
     return jsonify({"ok": ok, "agent_id": agent_id, "views_enabled": enabled})
 
 
+def _ensure_agent_stopped():
+    """Возвращает (ok, error_message). Если multi_agent запущен — нельзя крутить
+    реакции/views параллельно: pyrogram session-файлы SQLite заблокированы."""
+    pidfile = os.path.join(os.path.dirname(DB_PATH) or '.', 'agent.pid')
+    try:
+        with open(pidfile) as f:
+            pid = int(f.read().strip())
+        os.kill(pid, 0)  # alive?
+        return False, "Остановите агента (кнопка в шапке) перед ручной накруткой — иначе session-файлы заблокированы и Telegram отбрасывает запросы."
+    except (FileNotFoundError, ProcessLookupError, ValueError):
+        return True, ""
+    except Exception:
+        return True, ""
+
+
 @app.route('/api/reactions/run', methods=['POST'])
 def api_reactions_run():
     """Ручная накрутка лайков на последние посты в группе.
     body: {group_id, count?, message_ids?, agent_ids?[], emoji?}"""
+    ok, err = _ensure_agent_stopped()
+    if not ok:
+        return jsonify({"ok": False, "error": err}), 409
+
     payload = request.get_json(silent=True) or {}
     group_id = int(payload.get("group_id") or 0)
     count = int(payload.get("count") or 10)
@@ -1672,6 +1691,9 @@ def api_views_run():
     """Ручная накрутка просмотров.
     body: {group_id, count?, message_ids?, agent_ids?[]}
     Спавнит отдельный процесс который выполняет в asyncio и пишет в interactions."""
+    ok, err = _ensure_agent_stopped()
+    if not ok:
+        return jsonify({"ok": False, "error": err}), 409
     payload = request.get_json(silent=True) or {}
     group_id = int(payload.get("group_id") or 0)
     count = int(payload.get("count") or 20)
