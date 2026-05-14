@@ -569,15 +569,17 @@ async function loadSearchCategories() {
     try {
         const r = await fetch('/api/keywords');
         const data = await r.json();
-        // /api/keywords возвращает массив {category, keyword, enabled}
+        // /api/keywords отдаёт dict { "Спорт": [{id, category, keyword, enabled}, ...], ... }
         const pool = {};
-        (data || []).forEach(k => {
-            if (!k.enabled) return;
-            if (!pool[k.category]) pool[k.category] = [];
-            pool[k.category].push(k.keyword);
+        Object.keys(data || {}).forEach(cat => {
+            (data[cat] || []).forEach(kw => {
+                if (kw.enabled === false) return;
+                if (!pool[cat]) pool[cat] = [];
+                pool[cat].push(kw.keyword);
+            });
         });
         _searchCategoryPool = pool;
-        const cats = Object.keys(pool).sort();
+        const cats = Object.keys(pool).filter(c => pool[c].length > 0).sort();
         sel.innerHTML = '<option value="">— ручной ввод ниже —</option>' +
             cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} · ${pool[c].length} слов</option>`).join('');
     } catch(e) {
