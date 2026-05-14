@@ -364,6 +364,32 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
 
+        /* =============== Модалки — НАД контентом и НЕ прозрачные =============== */
+        /* Backdrop — тёмный с блюром */
+        .fixed.inset-0 {
+            z-index: 100 !important;
+            background: rgba(0,0,0,0.78) !important;
+            backdrop-filter: blur(16px) saturate(140%);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+        }
+        /* Если у backdrop есть свой bg-black/* или bg-opacity-* — он всё равно перекрывается выше */
+
+        /* Внутренняя панель модалки — СОЛИДНАЯ, не стеклянная */
+        .fixed.inset-0 .bg-white,
+        .fixed.inset-0 .bg-white.rounded-lg,
+        .fixed.inset-0 .bg-white.rounded-xl,
+        .fixed.inset-0 .bg-white.rounded-2xl {
+            background: #14141d !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            border: 1px solid rgba(255,255,255,0.10) !important;
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,0.10),
+              0 30px 80px -10px rgba(0,0,0,0.75) !important;
+            position: relative;
+            z-index: 101;
+        }
+
         /* =============== Floating Tab Bar =============== */
         .tabbar{
             position: fixed; bottom: 16px; left: 14px; right: 14px;
