@@ -758,6 +758,39 @@ def api_assign_group(group_id):
     return jsonify({"ok": ok, "group_id": group_id, "agent_id": aid})
 
 
+@app.route('/api/groups/assign-by-category', methods=['POST'])
+def api_assign_by_category():
+    """Назначает агенту все группы из указанной категории.
+    body: {agent_id: int, category: str, only_unassigned?: bool=true}
+    category может быть '__none__' — назначить группы без категории."""
+    data = request.get_json(force=True) or {}
+    try:
+        aid = int(data.get("agent_id"))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "agent_id required"}), 400
+    category = (data.get("category") or "").strip()
+    if not category:
+        return jsonify({"ok": False, "error": "category required"}), 400
+    only_unassigned = bool(data.get("only_unassigned", True))
+
+    conn = get_db_connection()
+    where = []
+    params = []
+    if category == "__none__":
+        where.append("source_category IS NULL")
+    else:
+        where.append("source_category = ?"); params.append(category)
+    if only_unassigned:
+        where.append("assigned_agent_id IS NULL")
+    where_sql = " AND ".join(where)
+    cursor = conn.execute(f"UPDATE target_groups SET assigned_agent_id = ? WHERE {where_sql}",
+                          (aid, *params))
+    affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "agent_id": aid, "category": category, "assigned": affected})
+
+
 @app.route('/api/groups/auto-distribute', methods=['POST'])
 def api_auto_distribute():
     """Round-robin распределение по активным агентам.

@@ -3,6 +3,30 @@
 {% block title %}Агенты{% endblock %}
 
 {% block content %}
+<!-- Assign-by-category Modal -->
+<div id="assign-cat-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-800">📦 Назначить категорию агенту</h3>
+            <button onclick="closeAssignCategoryModal()" class="text-gray-400 text-2xl leading-none">✕</button>
+        </div>
+        <p class="text-sm text-gray-500 mb-4">Агент: <b id="assign-cat-agent" class="text-gray-800"></b></p>
+
+        <label class="block text-xs font-semibold text-gray-600 mb-1 uppercase">Категория</label>
+        <select id="assign-cat-select" class="w-full mb-3"></select>
+
+        <label class="flex items-center gap-2 text-sm mb-4">
+            <input type="checkbox" id="assign-cat-only-unassigned" checked>
+            <span class="text-gray-700">Только нераспределённые (не перетягивать у других агентов)</span>
+        </label>
+
+        <div class="flex gap-2">
+            <button onclick="closeAssignCategoryModal()" class="flex-1 bg-gray-200 text-sm py-2 rounded-lg">Отмена</button>
+            <button onclick="runAssignCategory()" class="flex-1 bg-purple-500 text-white text-sm py-2 rounded-lg font-semibold">▶ Назначить</button>
+        </div>
+    </div>
+</div>
+
 <div class="mb-8 flex items-start justify-between">
     <div>
         <h2 class="text-3xl font-bold text-gray-800 mb-2">🤖 Telegram аккаунты</h2>
@@ -425,11 +449,17 @@ async function loadAgents() {
                                 <b>${a.assigned_groups_count || 0}</b>
                                 ${(a.assigned_groups_count || 0) === 0 ? '<span class="text-gray-500">(пишет в общий пул)</span>' : ''}
                             </div>
-                            <button onclick="toggleAssignedGroups(${a.id})"
-                                    id="toggle-groups-${a.id}"
-                                    class="text-xs bg-white hover:bg-indigo-100 border border-indigo-300 text-indigo-700 px-3 py-1 rounded transition">
-                                ${(a.assigned_groups_count || 0) > 0 ? 'Показать' : 'Назначить'}
-                            </button>
+                            <div class="flex gap-2">
+                                <button onclick="openAssignCategoryModal(${a.id}, '${escapeHtml(a.phone_number || ('agent #'+a.id))}')"
+                                        class="text-xs bg-white hover:bg-purple-100 border border-purple-300 text-purple-700 px-3 py-1 rounded transition">
+                                    📦 Категория
+                                </button>
+                                <button onclick="toggleAssignedGroups(${a.id})"
+                                        id="toggle-groups-${a.id}"
+                                        class="text-xs bg-white hover:bg-indigo-100 border border-indigo-300 text-indigo-700 px-3 py-1 rounded transition">
+                                    ${(a.assigned_groups_count || 0) > 0 ? 'Показать' : 'Назначить'}
+                                </button>
+                            </div>
                         </div>
                         <div id="groups-list-${a.id}" class="hidden mt-2 max-h-60 overflow-y-auto"></div>
                     </div>
@@ -509,6 +539,49 @@ async function changeReferral(agentId, currentTarget) {
 
 // Кэш всех агентов для дропдаунов переназначения.
 let _agentsCache = [];
+
+// ===== Assign-by-category =====
+let _assignCatAgentId = null;
+async function openAssignCategoryModal(agentId, agentLabel) {
+    _assignCatAgentId = agentId;
+    document.getElementById('assign-cat-agent').textContent = agentLabel;
+    const sel = document.getElementById('assign-cat-select');
+    sel.innerHTML = '<option>загрузка…</option>';
+    try {
+        const r = await fetch('/api/groups/categories');
+        const cats = await r.json();
+        const named = cats.filter(c => c.category).sort((a,b)=>a.category.localeCompare(b.category));
+        const without = cats.find(c => !c.category);
+        sel.innerHTML = named.map(c => `<option value="${escapeHtml(c.category)}">${escapeHtml(c.category)} · ${c.count}</option>`).join('') +
+            (without && without.count > 0 ? `<option value="__none__">— без категории · ${without.count}</option>` : '');
+    } catch(e) { sel.innerHTML = '<option>err</option>'; }
+    document.getElementById('assign-cat-modal').classList.remove('hidden');
+}
+function closeAssignCategoryModal() {
+    document.getElementById('assign-cat-modal').classList.add('hidden');
+    _assignCatAgentId = null;
+}
+async function runAssignCategory() {
+    if (!_assignCatAgentId) return;
+    const category = document.getElementById('assign-cat-select').value;
+    const only_unassigned = document.getElementById('assign-cat-only-unassigned').checked;
+    try {
+        const r = await fetch('/api/groups/assign-by-category', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ agent_id: _assignCatAgentId, category, only_unassigned })
+        });
+        const j = await r.json();
+        if (j.ok) {
+            const msg = `✅ Назначено ${j.assigned} групп из «${category}» агенту`;
+            if (window.Telegram?.WebApp?.showAlert) Telegram.WebApp.showAlert(msg); else alert(msg);
+            closeAssignCategoryModal();
+            loadAgents();
+        } else {
+            alert('❌ ' + (j.error || 'unknown'));
+        }
+    } catch(e) { alert('❌ ' + e); }
+}
+function escapeHtml(t) { const d=document.createElement('div'); d.textContent=t||''; return d.innerHTML; }
 
 async function toggleReactions(agentId, enable) {
     const enabled = enable === true || enable === 'true';
