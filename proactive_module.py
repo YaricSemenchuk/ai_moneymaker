@@ -11,6 +11,7 @@ from pyrogram import Client
 from pyrogram.errors import RPCError as PyrogramException
 from agent_database import AgentDatabase
 from llm_analyzer import LLMAnalyzer
+from admin_notifier import notify_ban
 from config_agent import (
     REFERRAL_BOT,
     PROACTIVE_ENABLED,
@@ -357,6 +358,15 @@ class ProactiveModule:
                 error_code = f"FLOOD_WAIT:{getattr(e, 'value', 0)}"
             elif "USER_BANNED_IN_CHANNEL" in err_str or "USER_KICKED" in err_str:
                 error_code = "USER_BANNED"
+                # Realtime-алерт в админ-бот
+                notify_ban(
+                    agent_id=self.agent_id, agent_label="proactive",
+                    group_db_id=group.get("id") or 0,
+                    group_title=group.get("title", "") or "?",
+                    error_code="USER_BANNED_IN_CHANNEL",
+                    last_message=post_data.get("text", ""),
+                    kind="ban",
+                )
             elif "CHANNEL_INVALID" in err_str:
                 logger.warning(f"❌ CHANNEL_INVALID in {group['title']} — marking no_permission")
                 self.db.update_group_status(group["id"], "no_permission")

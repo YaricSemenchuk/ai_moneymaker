@@ -105,6 +105,9 @@ def _enforce_tg_auth():
         return None
     if request.endpoint == "static":
         return None
+    # /api/track-signup использует свой HMAC, не Telegram initData.
+    if request.path == "/api/track-signup":
+        return None
     if not BOT_TOKEN or not ALLOWED_USER_IDS:
         return ("Auth not configured: set BOT_TOKEN and ALLOWED_USER_IDS env vars", 503)
 
@@ -1873,6 +1876,68 @@ def api_agent_log():
         return jsonify({"ok": True, "log": ""})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ============================================
+# ТРЕКИНГ КОНВЕРСИЙ (вызывается из @moneymakerquest_bot)
+# ============================================
+
+@app.route('/api/track-signup', methods=['POST'])
+def api_track_signup():
+    """Принимает атрибуцию от @moneymakerquest_bot /start handler.
+
+    Авторизация: HMAC-SHA256 от body c общим секретом TRACK_SECRET.
+    Заголовок: X-Track-Signature: <hex_hmac>.
+
+    Body (JSON):
+      {"telegram_user_id": 123456789, "payload": "ag1_g56"}
+    payload может быть None / "" / любая строка — атрибуция запишется как
+    organic / payload-string. В payload "ag{N}_g{M}" парсится agent/group.
+
+    Ответ:
+      200 {"ok": true, "new": true|false}  — new=true если первый /start этого юзера
+      401 если HMAC не совпал
+      400 если body невалидный
+      503 если TRACK_SECRET не настроен на сервере
+    """
+    from config_agent import TRACK_SECRET
+    if not TRACK_SECRET:
+        return jsonify({"ok": False, "error": "TRACK_SECRET not configured"}), 503
+
+    raw_body = request.get_data() or b""
+    sig_provided = request.headers.get("X-Track-Signature", "")
+    expected = hmac.new(TRACK_SECRET.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig_provided, expected):
+        return jsonify({"ok": False, "error": "bad signature"}), 401
+
+    try:
+        data = json.loads(raw_body.decode("utf-8") or "{}")
+        user_id = int(data.get("telegram_user_id") or 0)
+        payload = data.get("payload")
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"bad json: {e}"}), 400
+
+    if user_id <= 0:
+        return jsonify({"ok": False, "error": "telegram_user_id required"}), 400
+
+    from agent_database import AgentDatabase
+    db = AgentDatabase(DB_PATH)
+    inserted = db.log_signup(user_id, payload)
+    return jsonify({"ok": True, "new": inserted})
+
+
+@app.route('/api/conversions/summary', methods=['GET'])
+def api_conversions_summary():
+    """Сводка конверсий: organic vs promo + топ агентов и групп."""
+    from agent_database import AgentDatabase
+    db = AgentDatabase(DB_PATH)
+    hours = int(request.args.get("hours", "24"))
+    return jsonify({
+        "summary": db.get_signup_summary(hours),
+        "by_agent": db.get_signups_by_agent(hours),
+        "by_group": db.get_signups_by_group(hours, limit=20),
+        "window_hours": hours,
+    })
 
 
 if __name__ == '__main__':

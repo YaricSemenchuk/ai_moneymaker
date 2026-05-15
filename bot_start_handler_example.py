@@ -1,70 +1,73 @@
+"""ГОТОВЫЙ К КОПИПАСТЕ snippet для @moneymakerquest_bot.
+
+Этот файл живёт в ЭТОМ репо как референс — но логику надо скопировать
+в код самого бота (@moneymakerquest_bot, отдельный сервис на Railway).
+
+Что делает:
+- Перехватывает /start <payload>
+- Отправляет атрибуцию в дашборд агента по HTTPS с HMAC-подписью
+- Дальше показывает свой обычный приветственный экран
+
+ENV, которые надо добавить в Railway для @moneymakerquest_bot:
+  TRACK_SECRET=<тот же что в env агента>
+  TRACK_URL=https://<твой-агент>.up.railway.app/api/track-signup
+
+Зависимости: requests (он почти везде уже есть).
 """
-ПРИМЕР: /start handler для @moneymakerquest_bot для атрибуции переходов.
+import hmac
+import hashlib
+import json
+import logging
+import os
+import threading
+from typing import Optional
 
-Этот файл живёт В РЕПО САМОГО БОТА (не этого проекта-агента).
-Скопируйте логику в свой код бота.
+import requests
 
-Payload формат: ag{agent_id}_g{group_db_id}
-  agX_gY    — пришёл через агента X с группы Y (наш проактив/реактив)
-  ag1_dm    — пришёл из личного сообщения (если будем добавлять)
-  органика  — без payload (просто /start)
+log = logging.getLogger(__name__)
 
-Пример для aiogram 3.x. Адаптируйте под свой фреймворк (python-telegram-bot,
-pyrogram, telebot — логика одинаковая).
-"""
-from datetime import datetime
-import re
-import sqlite3
-
-# В РЕПО БОТА должен быть свой sqlite/postgres для пользователей.
-# Здесь — пример минимальной таблицы атрибуции:
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS signup_sources (
-    telegram_user_id INTEGER PRIMARY KEY,
-    source TEXT,            -- 'ag1_g56' / 'organic' / 'dm' / ...
-    agent_id INTEGER,
-    promo_group_id INTEGER,
-    first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_signup_source ON signup_sources(source);
-"""
-
-PAYLOAD_RE = re.compile(r"^ag(\d+)_g(\d+)$")
+TRACK_SECRET = os.getenv("TRACK_SECRET", "")
+TRACK_URL = os.getenv("TRACK_URL", "")  # https://<dashboard>/api/track-signup
 
 
-def parse_payload(payload: str):
-    """ag1_g56 → (1, 56). Иначе None."""
-    if not payload:
-        return None
-    m = PAYLOAD_RE.match(payload.strip())
-    if not m:
-        return None
-    return int(m.group(1)), int(m.group(2))
+def _post_attribution(telegram_user_id: int, payload: Optional[str]) -> None:
+    """Синхронный POST. Вызывай через _track_async — он завернёт в тред."""
+    if not TRACK_SECRET or not TRACK_URL:
+        return
+    body = json.dumps({
+        "telegram_user_id": telegram_user_id,
+        "payload": payload or "",
+    }, separators=(",", ":")).encode("utf-8")
+    sig = hmac.new(TRACK_SECRET.encode("utf-8"), body, hashlib.sha256).hexdigest()
+    headers = {
+        "Content-Type": "application/json",
+        "X-Track-Signature": sig,
+    }
+    try:
+        r = requests.post(TRACK_URL, data=body, headers=headers, timeout=5)
+        if r.status_code != 200:
+            log.warning(f"track-signup {r.status_code}: {r.text[:200]}")
+    except Exception as e:
+        log.warning(f"track-signup error: {e}")
 
 
-def log_signup(db_path: str, telegram_user_id: int, payload: str | None):
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.executescript(SCHEMA)
+def track_signup_async(telegram_user_id: int, payload: Optional[str]) -> None:
+    """Fire-and-forget: не блокируем хендлер /start.
 
-    parsed = parse_payload(payload)
-    if parsed:
-        agent_id, group_id = parsed
-        source = f"ag{agent_id}_g{group_id}"
-    else:
-        agent_id, group_id, source = None, None, (payload or "organic")
-
-    # INSERT OR IGNORE — первый источник побеждает (не перезаписываем при повторных /start)
-    cur.execute(
-        "INSERT OR IGNORE INTO signup_sources (telegram_user_id, source, agent_id, promo_group_id) "
-        "VALUES (?, ?, ?, ?)",
-        (telegram_user_id, source, agent_id, group_id),
-    )
-    conn.commit()
-    conn.close()
+    Вызови это в самом начале своего /start-handler, до отправки welcome.
+    """
+    threading.Thread(
+        target=_post_attribution,
+        args=(telegram_user_id, payload),
+        daemon=True,
+    ).start()
 
 
-# === aiogram 3.x пример ===
+# ============================================================
+# === Примеры интеграции в существующий /start-handler бота ===
+# ============================================================
+
+# --- aiogram 3.x ---
 # from aiogram import Router
 # from aiogram.types import Message
 # from aiogram.filters import CommandStart, CommandObject
@@ -73,30 +76,34 @@ def log_signup(db_path: str, telegram_user_id: int, payload: str | None):
 #
 # @router.message(CommandStart())
 # async def cmd_start(msg: Message, command: CommandObject):
-#     payload = command.args  # часть после /start
-#     log_signup("bot.db", msg.from_user.id, payload)
+#     track_signup_async(msg.from_user.id, command.args)  # <-- одна строка
 #     await msg.answer("Привет! Тут задания за USDT...")
 
+# --- pyrogram / pyrofork ---
+# from pyrogram import Client, filters
+#
+# @app.on_message(filters.command("start"))
+# async def cmd_start(client, message):
+#     parts = (message.text or "").split(maxsplit=1)
+#     payload = parts[1] if len(parts) > 1 else ""
+#     track_signup_async(message.from_user.id, payload)  # <-- одна строка
+#     await message.reply("Привет! Тут задания за USDT...")
 
-# === Запрос для аналитики (запускать в БД бота): ===
-ANALYTICS_QUERY = """
--- Конверсия по агентам:
-SELECT agent_id, COUNT(*) AS signups
-FROM signup_sources
-WHERE agent_id IS NOT NULL
-GROUP BY agent_id
-ORDER BY 2 DESC;
+# --- python-telegram-bot v20+ ---
+# from telegram import Update
+# from telegram.ext import CommandHandler, ContextTypes
+#
+# async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+#     payload = ctx.args[0] if ctx.args else ""
+#     track_signup_async(update.effective_user.id, payload)  # <-- одна строка
+#     await update.message.reply_text("Привет! Тут задания за USDT...")
 
--- Конверсия по группам (топ источников):
-SELECT promo_group_id, COUNT(*) AS signups
-FROM signup_sources
-WHERE promo_group_id IS NOT NULL
-GROUP BY promo_group_id
-ORDER BY 2 DESC
-LIMIT 20;
 
--- Органика vs реклама:
-SELECT
-    CASE WHEN agent_id IS NULL THEN 'organic' ELSE 'promo' END AS bucket,
-    COUNT(*) FROM signup_sources GROUP BY bucket;
-"""
+# ============================================================
+# Аналитика — данные доступны в дашборде агента:
+#   GET /api/conversions/summary?hours=24
+#   GET /groups (там колонка signups)
+# Или SQL прямо в agent.db:
+#   SELECT agent_id, COUNT(*) FROM signup_sources
+#   WHERE agent_id IS NOT NULL GROUP BY agent_id ORDER BY 2 DESC;
+# ============================================================

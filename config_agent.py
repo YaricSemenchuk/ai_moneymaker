@@ -223,3 +223,20 @@ PROACTIVE_ACTIVE_HOUR_END = 24       # было 22
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 DB_PATH = os.getenv("DB_PATH", "moneymaker_agent.db")
 SESSIONS_DIR = os.getenv("SESSIONS_DIR", "sessions")
+
+# === Админ-бот для алертов и отчётов ===
+# Создай бота через @BotFather, токен в Railway env.
+# ADMIN_CHAT_ID = твой личный telegram_id (узнать через @userinfobot).
+ADMIN_BOT_TOKEN = os.getenv("ADMIN_BOT_TOKEN", "")    # токен @aismoneymaker_bot
+ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "")        # куда слать алерты (твой chat_id)
+ADMIN_ALERTS_ENABLED = bool(ADMIN_BOT_TOKEN and ADMIN_CHAT_ID)
+# Минимум секунд между одинаковыми алертами на одну группу — анти-флуд.
+ADMIN_BAN_ALERT_COOLDOWN_SEC = 600
+
+# === Трекинг конверсий ===
+# Секрет для HMAC-подписи POST /api/track-signup (бот → дашборд).
+# Тот же секрет должен быть в env @moneymakerquest_bot.
+TRACK_SECRET = os.getenv("TRACK_SECRET", "")
+# Публичный URL дашборда (для @moneymakerquest_bot, чтобы он знал куда стучать).
+# На Railway это что-то вроде https://moneymaker-agent.up.railway.app
+DASHBOARD_PUBLIC_URL = os.getenv("DASHBOARD_PUBLIC_URL", "")

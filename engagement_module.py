@@ -13,6 +13,7 @@ from config_agent import (
 )
 # shared cooldown dict с proactive_module
 from proactive_module import _slowmode_cooldowns
+from admin_notifier import notify_ban
 
 logger = logging.getLogger(__name__)
 
@@ -167,20 +168,23 @@ class EngagementModule:
         except PyrogramException as e:
             err_str = str(e)
 
-            # Helper для обновления статуса группы по telegram_group_id
+            # Helper для обновления статуса группы по telegram_group_id.
+            # Возвращает (db_id, title) для последующих алертов.
+            matched_group: Dict = {}
+
             def mark_group(new_status: str):
-                # Ищем во всех релевантных статусах
                 groups = self.db.get_groups_by_statuses(
                     ["joined", "active", "discovered"], limit=1000
                 )
                 for g in groups:
                     if g.get("telegram_group_id") == group_id:
                         self.db.update_group_status(g["id"], new_status)
-                        # Также обновляем membership агента
                         try:
                             self.db.set_membership(self.agent_id, g["id"], new_status, err_str)
                         except Exception:
                             pass
+                        matched_group["id"] = g["id"]
+                        matched_group["title"] = g.get("title", "")
                         return g["id"]
                 return None
 
@@ -201,6 +205,15 @@ class EngagementModule:
                     self._auto_learn_from_ban(message_text, group_id, err_str)
                 except Exception as e:
                     logger.debug(f"Auto-learn error: {e}")
+                # Realtime-алерт в админ-бот
+                notify_ban(
+                    agent_id=self.agent_id, agent_label="reply",
+                    group_db_id=matched_group.get("id") or 0,
+                    group_title=matched_group.get("title", "") or str(group_id),
+                    error_code="USER_BANNED_IN_CHANNEL",
+                    last_message=message_text,
+                    kind="ban",
+                )
                 error_code = "USER_BANNED"
             elif "CHANNEL_PRIVATE" in err_str:
                 logger.warning(f"Group {group_id} is private or we're kicked")

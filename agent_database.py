@@ -321,6 +321,23 @@ class AgentDatabase:
             )
         ''')
 
+        # Атрибуция: куда пришли юзеры через диплинки агентов.
+        # Пишется из POST /api/track-signup, который дёргает @moneymakerquest_bot
+        # из своего /start-handler. INSERT OR IGNORE — первый источник побеждает.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS signup_sources (
+                telegram_user_id INTEGER PRIMARY KEY,
+                source TEXT,
+                agent_id INTEGER,
+                promo_group_id INTEGER,
+                first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_signup_source ON signup_sources(source)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_signup_agent ON signup_sources(agent_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_signup_group ON signup_sources(promo_group_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_signup_seen ON signup_sources(first_seen_at)')
+
         # Индексы под hot-queries из anti_ban_module и proactive_module:
         # count actions today, count proactive today, фильтр групп по статусу.
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_interactions_agent_created ON interactions(agent_id, created_at)')
@@ -1730,3 +1747,89 @@ class AgentDatabase:
                 'referral_link': row[6]
             })
         return tasks
+
+    # --- Signup attribution (заведено из @moneymakerquest_bot /start handler) ---
+
+    def log_signup(self, telegram_user_id: int, payload: Optional[str]) -> bool:
+        """Логирует первый заход юзера в бот с указанием источника.
+
+        payload форматы:
+          ag{N}_g{M}  — пришёл через агента N из группы M
+          ag{N}_dm    — пришёл из ЛС агента N (на будущее)
+          None / "" / любой другой — organic
+
+        INSERT OR IGNORE: первый источник побеждает (повторные /start не
+        перезаписывают атрибуцию).
+        """
+        import re as _re
+        agent_id = None
+        group_id = None
+        source = "organic"
+        if payload:
+            m = _re.match(r"^ag(\d+)_g(\d+)$", payload.strip())
+            if m:
+                agent_id = int(m.group(1))
+                group_id = int(m.group(2))
+                source = f"ag{agent_id}_g{group_id}"
+            else:
+                # Сохраняем как есть (например ag1_dm или прочее)
+                source = payload.strip()[:64]
+        try:
+            conn = self.get_connection()
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT OR IGNORE INTO signup_sources "
+                "(telegram_user_id, source, agent_id, promo_group_id) VALUES (?, ?, ?, ?)",
+                (telegram_user_id, source, agent_id, group_id),
+            )
+            conn.commit()
+            inserted = cur.rowcount > 0
+            conn.close()
+            return inserted
+        except Exception:
+            return False
+
+    def get_signups_by_agent(self, hours: int = 24) -> List[Dict]:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT agent_id, COUNT(*) FROM signup_sources "
+            "WHERE agent_id IS NOT NULL AND first_seen_at >= datetime('now', ?) "
+            "GROUP BY agent_id ORDER BY 2 DESC",
+            (f"-{hours} hours",),
+        )
+        rows = cur.fetchall()
+        conn.close()
+        return [{"agent_id": r[0], "signups": r[1]} for r in rows]
+
+    def get_signups_by_group(self, hours: int = 24, limit: int = 50) -> List[Dict]:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT promo_group_id, COUNT(*) FROM signup_sources "
+            "WHERE promo_group_id IS NOT NULL AND first_seen_at >= datetime('now', ?) "
+            "GROUP BY promo_group_id ORDER BY 2 DESC LIMIT ?",
+            (f"-{hours} hours", limit),
+        )
+        rows = cur.fetchall()
+        conn.close()
+        return [{"group_id": r[0], "signups": r[1]} for r in rows]
+
+    def get_signup_summary(self, hours: int = 24) -> Dict:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT "
+            "  SUM(CASE WHEN agent_id IS NULL THEN 1 ELSE 0 END), "
+            "  SUM(CASE WHEN agent_id IS NOT NULL THEN 1 ELSE 0 END), "
+            "  COUNT(*) "
+            "FROM signup_sources WHERE first_seen_at >= datetime('now', ?)",
+            (f"-{hours} hours",),
+        )
+        row = cur.fetchone()
+        conn.close()
+        return {
+            "organic": row[0] or 0,
+            "promo": row[1] or 0,
+            "total": row[2] or 0,
+        }
