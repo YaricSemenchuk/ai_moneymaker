@@ -237,13 +237,15 @@ class ProactiveModule:
         # (порядок важен: иначе .replace("bot", "group") сломает плейсхолдер)
         prompt_text = template["prompt"].format(bot=target)
 
-        # Если promotim группу — переформулируем естественнее
+        # Если promotim группу/канал — переформулируем естественнее
         if target_type == "group":
-            # Заменяем "бот" / "бота" на "группу" в свободном тексте
-            # (target уже подставлен и его не затронет, так как там @username)
             prompt_text = prompt_text.replace("бота", "группу")
             prompt_text = prompt_text.replace("бот ", "группу ")
             prompt_text = prompt_text.replace(" bot", " group")
+        elif target_type == "channel":
+            prompt_text = prompt_text.replace("бота", "канал")
+            prompt_text = prompt_text.replace("бот ", "канал ")
+            prompt_text = prompt_text.replace(" bot", " channel")
 
         messages = [
             {"role": "system", "content": self.llm.agent_prompt},
@@ -312,13 +314,33 @@ class ProactiveModule:
         try:
             telegram_group_id = group["telegram_group_id"]
 
-            # Deep-link атрибуция (только для bot-таргета)
+            # Deep-link атрибуция (bot и channel через gatekeeper).
+            # Variant id для A/B зашиваем как _v{V}, чтобы signup_sources
+            # привязывал конверсии к шаблону поста.
             target = self.llm.referral_target
             target_type = getattr(self.llm, "target_type", "bot")
+            v = post_data.get("template") or "tpl"  # имя шаблона как vid
             if target_type == "bot" and target and target.startswith("@"):
                 bot_name = target.lstrip("@")
-                deeplink = f"https://t.me/{bot_name}?start=ag{self.agent_id}_g{group['id']}"
+                deeplink = f"https://t.me/{bot_name}?start=ag{self.agent_id}_g{group['id']}_v{v}"
                 post_data["text"] = post_data["text"].replace(target, deeplink)
+            elif target_type == "channel":
+                try:
+                    from config_agent import CHANNEL_GATEKEEPER_BOT, CHANNEL_INVITE_LINK
+                except Exception:
+                    CHANNEL_GATEKEEPER_BOT = ""
+                    CHANNEL_INVITE_LINK = ""
+                if CHANNEL_GATEKEEPER_BOT:
+                    gk = CHANNEL_GATEKEEPER_BOT.lstrip("@")
+                    link = f"https://t.me/{gk}?start=chag{self.agent_id}_g{group['id']}_v{v}"
+                elif CHANNEL_INVITE_LINK:
+                    link = CHANNEL_INVITE_LINK
+                elif target and target.startswith("@"):
+                    link = f"https://t.me/{target.lstrip('@')}"
+                else:
+                    link = None
+                if link and target:
+                    post_data["text"] = post_data["text"].replace(target, link)
 
             logger.info(f"📤 Posting to {group['title']}: {post_data['text'][:60]}...")
 

@@ -1940,6 +1940,22 @@ def api_conversions_summary():
     })
 
 
+@app.route('/api/cta-stats', methods=['GET'])
+def api_cta_stats():
+    """CTR по A/B-вариантам CTA: sends, signups, ctr.
+
+    Дефолт окно — 7 дней (нужна статзначимость, у новых вариантов мало данных).
+    Пример: GET /api/cta-stats?hours=168
+    """
+    from agent_database import AgentDatabase
+    db = AgentDatabase(DB_PATH)
+    hours = int(request.args.get("hours", "168"))
+    return jsonify({
+        "window_hours": hours,
+        "variants": db.get_cta_stats(hours),
+    })
+
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", "5001"))
     print("=" * 60)

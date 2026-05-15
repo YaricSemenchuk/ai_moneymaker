@@ -142,6 +142,12 @@ class AgentDatabase:
         except sqlite3.OperationalError:
             pass  # уже добавлена
 
+        # Миграция: cta_variant в interactions — для A/B аналитики CTR.
+        try:
+            cursor.execute('ALTER TABLE interactions ADD COLUMN cta_variant TEXT')
+        except sqlite3.OperationalError:
+            pass
+
         # Миграция: per-account proxy + device для антибана/тдата-импорта
         for col_def in [
             ('proxy_url',     'ALTER TABLE agent_accounts ADD COLUMN proxy_url TEXT'),
@@ -337,6 +343,13 @@ class AgentDatabase:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_signup_agent ON signup_sources(agent_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_signup_group ON signup_sources(promo_group_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_signup_seen ON signup_sources(first_seen_at)')
+
+        # Миграция: cta_variant — какой A/B-шаблон CTA привёл юзера.
+        try:
+            cursor.execute('ALTER TABLE signup_sources ADD COLUMN cta_variant TEXT')
+        except sqlite3.OperationalError:
+            pass
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_signup_variant ON signup_sources(cta_variant)')
 
         # Индексы под hot-queries из anti_ban_module и proactive_module:
         # count actions today, count proactive today, фильтр групп по статусу.
@@ -592,21 +605,23 @@ class AgentDatabase:
 
     def log_interaction(self, agent_id: int, group_id: int, message_text: str,
                        user_id: Optional[int] = None, response_text: Optional[str] = None,
-                       status: str = 'sent', error_code: Optional[str] = None) -> int:
+                       status: str = 'sent', error_code: Optional[str] = None,
+                       cta_variant: Optional[str] = None) -> int:
         """Log an interaction (message sent by agent).
 
         Args:
             status: 'sent' / 'failed' / 'pending' / 'blocked_filter'
             error_code: краткий код причины (CHAT_WRITE_FORBIDDEN, SLOWMODE_WAIT,
                        FLOOD_WAIT, USER_BANNED, FILTER_BLOCK, EMPTY, EXCEPTION, ...)
+            cta_variant: id A/B-варианта CTA-хука (v1, v2a, ...) для CTR-аналитики.
         """
         conn = self.get_connection()
         cursor = conn.cursor()
 
         cursor.execute('''
-            INSERT INTO interactions (agent_id, group_id, user_id, message_text, response_text, interaction_type, status, error_code)
-            VALUES (?, ?, ?, ?, ?, 'outbound', ?, ?)
-        ''', (agent_id, group_id, user_id, message_text, response_text, status, error_code))
+            INSERT INTO interactions (agent_id, group_id, user_id, message_text, response_text, interaction_type, status, error_code, cta_variant)
+            VALUES (?, ?, ?, ?, ?, 'outbound', ?, ?, ?)
+        ''', (agent_id, group_id, user_id, message_text, response_text, status, error_code, cta_variant))
 
         conn.commit()
         interaction_id = cursor.lastrowid
@@ -1754,9 +1769,10 @@ class AgentDatabase:
         """Логирует первый заход юзера в бот с указанием источника.
 
         payload форматы:
-          ag{N}_g{M}  — пришёл через агента N из группы M
-          ag{N}_dm    — пришёл из ЛС агента N (на будущее)
-          None / "" / любой другой — organic
+          ag{N}_g{M}[_v{V}]    — bot-таргет: агент N, группа M, CTA-вариант V
+          chag{N}_g{M}[_v{V}]  — channel-gatekeeper: агент привёл юзера в канал
+          ag{N}_dm             — пришёл из ЛС агента N (на будущее)
+          None / "" / прочее   — organic
 
         INSERT OR IGNORE: первый источник побеждает (повторные /start не
         перезаписывают атрибуцию).
@@ -1764,23 +1780,30 @@ class AgentDatabase:
         import re as _re
         agent_id = None
         group_id = None
+        cta_variant = None
         source = "organic"
         if payload:
-            m = _re.match(r"^ag(\d+)_g(\d+)$", payload.strip())
+            s = payload.strip()
+            m = _re.match(r"^(ch)?ag(\d+)_g(\d+)(?:_v([A-Za-z0-9]+))?$", s)
             if m:
-                agent_id = int(m.group(1))
-                group_id = int(m.group(2))
-                source = f"ag{agent_id}_g{group_id}"
+                is_channel = bool(m.group(1))
+                agent_id = int(m.group(2))
+                group_id = int(m.group(3))
+                cta_variant = m.group(4)
+                prefix = "chag" if is_channel else "ag"
+                source = f"{prefix}{agent_id}_g{group_id}"
+                if cta_variant:
+                    source += f"_v{cta_variant}"
             else:
-                # Сохраняем как есть (например ag1_dm или прочее)
-                source = payload.strip()[:64]
+                source = s[:64]
         try:
             conn = self.get_connection()
             cur = conn.cursor()
             cur.execute(
                 "INSERT OR IGNORE INTO signup_sources "
-                "(telegram_user_id, source, agent_id, promo_group_id) VALUES (?, ?, ?, ?)",
-                (telegram_user_id, source, agent_id, group_id),
+                "(telegram_user_id, source, agent_id, promo_group_id, cta_variant) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (telegram_user_id, source, agent_id, group_id, cta_variant),
             )
             conn.commit()
             inserted = cur.rowcount > 0
@@ -1788,6 +1811,46 @@ class AgentDatabase:
             return inserted
         except Exception:
             return False
+
+    def get_cta_stats(self, hours: int = 168) -> List[Dict]:
+        """CTR по A/B-вариантам CTA за окно.
+
+        Считает sends из interactions (где cta_variant IS NOT NULL и status='sent'),
+        signups — из signup_sources с тем же cta_variant. Возвращает список
+        вида [{variant, sends, signups, ctr}], отсортированный по CTR.
+        """
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT cta_variant, COUNT(*) FROM interactions "
+            "WHERE cta_variant IS NOT NULL AND status='sent' "
+            "  AND created_at >= datetime('now', ?) "
+            "GROUP BY cta_variant",
+            (f"-{hours} hours",),
+        )
+        sends = {r[0]: r[1] for r in cur.fetchall()}
+        cur.execute(
+            "SELECT cta_variant, COUNT(*) FROM signup_sources "
+            "WHERE cta_variant IS NOT NULL "
+            "  AND first_seen_at >= datetime('now', ?) "
+            "GROUP BY cta_variant",
+            (f"-{hours} hours",),
+        )
+        signups = {r[0]: r[1] for r in cur.fetchall()}
+        conn.close()
+        variants = set(sends) | set(signups)
+        rows = []
+        for v in variants:
+            s = sends.get(v, 0)
+            c = signups.get(v, 0)
+            rows.append({
+                "variant": v,
+                "sends": s,
+                "signups": c,
+                "ctr": (c / s) if s else 0.0,
+            })
+        rows.sort(key=lambda r: (-r["ctr"], -r["sends"]))
+        return rows
 
     def get_signups_by_agent(self, hours: int = 24) -> List[Dict]:
         conn = self.get_connection()

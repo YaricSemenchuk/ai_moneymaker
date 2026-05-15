@@ -98,7 +98,11 @@ class LLMAnalyzer:
 
     def _build_agent_prompt(self) -> str:
         """Собирает системный prompt с учётом target и gender."""
-        kind_word = "группу" if self.target_type == "group" else "бот"
+        kind_word = {
+            "group": "группу",
+            "channel": "канал",
+            "bot": "бот",
+        }.get(self.target_type, "бот")
         target_desc = self.target_description
 
         if self.gender == 'female':
@@ -376,8 +380,8 @@ class LLMAnalyzer:
         language = self.detect_language(original_message)
 
         # Тип target определяет акцент в промпте
-        target_word_ru = "группу" if self.target_type == "group" else "бот"
-        target_word_en = "group" if self.target_type == "group" else "bot"
+        target_word_ru = {"group": "группу", "channel": "канал", "bot": "бот"}.get(self.target_type, "бот")
+        target_word_en = {"group": "group", "channel": "channel", "bot": "bot"}.get(self.target_type, "bot")
 
         if language == "ru":
             user_prompt = f"""Помогите мне сформулировать дружелюбный и естественный ответ на сообщение в Telegram группе:
