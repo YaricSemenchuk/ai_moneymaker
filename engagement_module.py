@@ -10,6 +10,7 @@ from config_agent import (
     REFERRAL_BOT, REPLY_VIA_DM, DM_FALLBACK_TO_GROUP,
     REPLY_GROUP_INCLUDES_LINK, LISTENING_INTEREST_THRESHOLD,
     GROUP_TITLE_BLACKLIST, SLOWMODE_BACKOFF_MULTIPLIER, SLOWMODE_MIN_COOLDOWN_SEC,
+    CTA_VARIANTS, CHANNEL_GATEKEEPER_BOT, CHANNEL_INVITE_LINK,
 )
 # shared cooldown dict с proactive_module
 from proactive_module import _slowmode_cooldowns
@@ -286,7 +287,8 @@ class EngagementModule:
 
     async def log_interaction(self, group_id: int, message_text: str,
                              response_text: str, user_id: Optional[int] = None,
-                             status: str = 'sent', error_code: Optional[str] = None) -> bool:
+                             status: str = 'sent', error_code: Optional[str] = None,
+                             cta_variant: Optional[str] = None) -> bool:
         """
         Логирует взаимодействие в БД.
 
@@ -309,6 +311,7 @@ class EngagementModule:
                 user_id=user_id,
                 status=status,
                 error_code=error_code,
+                cta_variant=cta_variant,
             )
 
             logger.debug(f"Interaction logged: {interaction_id} (status={status})")
@@ -390,8 +393,16 @@ class EngagementModule:
                 logger.warning("Failed to generate response")
                 return False
 
-            # Deep-link атрибуция: подменяем @bot на t.me/bot?start=ag{N}_g{GID}
-            response = self._inject_deeplink(response, group_db_id)
+            # Хук в группе генерим до DM, чтобы знать variant_id и зашить его
+            # И в групповой CTA, И в DM-диплинк → CTR считается единым.
+            hook_text, cta_variant = (None, None)
+            if REPLY_VIA_DM and user_id and REPLY_GROUP_INCLUDES_LINK:
+                hook_text, cta_variant = self._make_group_hook(
+                    message.from_user, group_db_id=group_db_id, include_link=True,
+                )
+
+            # Deep-link атрибуция: подменяем @target на t.me/...?start=...
+            response = self._inject_deeplink(response, group_db_id, variant_id=cta_variant)
 
             # ЛС-режим: отвечаем в личку (там нет модерации, конверсия выше).
             # В группе оставляем короткий хук без ссылки чтобы не сжечь акк.
@@ -404,18 +415,16 @@ class EngagementModule:
                 if dm_ok:
                     sent_to_dm = True
                     success = True
-                    # Хук в группе. Если REPLY_GROUP_INCLUDES_LINK — добавляем
-                    # диплинк прямо в группу (главный рычаг трафика: юзеры видят
-                    # CTA в контексте, не нужно открывать DM от незнакомца).
-                    hook = self._make_group_hook(
-                        message.from_user,
-                        group_db_id=group_db_id,
-                        include_link=REPLY_GROUP_INCLUDES_LINK,
-                    )
-                    if hook:
+                    # Хук в группе. Если REPLY_GROUP_INCLUDES_LINK=True —
+                    # hook_text уже сгенерён выше с диплинком.
+                    if not hook_text:
+                        hook_text, _ = self._make_group_hook(
+                            message.from_user, group_db_id=group_db_id, include_link=False,
+                        )
+                    if hook_text:
                         try:
                             await self.client.send_message(
-                                group_id, hook,
+                                group_id, hook_text,
                                 reply_to_message_id=message.id,
                             )
                         except Exception as e:
@@ -437,6 +446,7 @@ class EngagementModule:
                 user_id=user_id,
                 status='sent' if success else 'failed',
                 error_code=error_code,
+                cta_variant=cta_variant,
             )
 
             # Если успешно отправили - помечаем группу как 'active' (если ещё не active/banned)
@@ -457,13 +467,26 @@ class EngagementModule:
             logger.error(f"Error handling message: {e}")
             return False
 
-    def _make_group_hook(self, from_user, group_db_id: Optional[int] = None,
-                         include_link: bool = False) -> Optional[str]:
-        """Короткий хук в группе.
+    def _pick_cta_variant(self, has_name: bool) -> tuple:
+        """Возвращает (variant_id, template) под текущий target_type.
 
-        include_link=False (старое поведение): только намёк на ЛС, без ссылок.
-        include_link=True: добавляем диплинк → главный рычаг конверсии, юзеры
-        видят CTA в контексте обсуждения, не открывая DM от незнакомца.
+        Pool — CTA_VARIANTS[type]['named'|'anon']. Случайный выбор.
+        variant_id логируется в interactions.cta_variant и зашивается в диплинк
+        как ..._v{ID} → signup_sources.cta_variant. CTR = signups/sends по id.
+        """
+        import random
+        ttype = getattr(self.llm, "target_type", "bot")
+        pool = CTA_VARIANTS.get(ttype) or CTA_VARIANTS.get("bot")
+        variants = pool["named"] if has_name and pool.get("named") else pool["anon"]
+        return random.choice(variants)
+
+    def _make_group_hook(self, from_user, group_db_id: Optional[int] = None,
+                         include_link: bool = False) -> tuple:
+        """Короткий хук в группе. Возвращает (text, variant_id|None).
+
+        include_link=False: только намёк на ЛС, без ссылок — variant_id=None.
+        include_link=True: рендерит CTA из CTA_VARIANTS с диплинком; variant_id
+        логируется и зашит в диплинк (_v{ID}) для CTR-аналитики.
         """
         import random
         name = ""
@@ -474,22 +497,11 @@ class EngagementModule:
             pass
 
         if include_link:
-            link = self._build_deeplink(group_db_id)
+            variant_id, template = self._pick_cta_variant(has_name=bool(name))
+            link = self._build_deeplink(group_db_id, variant_id=variant_id)
             if link:
-                variants_named = [
-                    f"{name}, держи — {link}",
-                    f"{name}, вот тут смотри: {link}",
-                    f"{name}, попробуй это {link}",
-                    f"{name}, я отсюда тащу — {link}",
-                ]
-                variants_anon = [
-                    f"вот, держи — {link}",
-                    f"попробуй: {link}",
-                    f"я отсюда — {link}",
-                    f"тут смотри {link}",
-                ]
-                return random.choice(variants_named if name else variants_anon)
-            # link недоступен — fallback на старый хук
+                return template.format(name=name, link=link), variant_id
+            # link недоступен — fallback на старый хук без ссылки
 
         variants_named = [
             f"{name}, скинул в лс — там подробнее",
@@ -501,40 +513,62 @@ class EngagementModule:
             "написал в личку",
             "отправил в лс",
         ]
-        return random.choice(variants_named if name else variants_anon)
+        return random.choice(variants_named if name else variants_anon), None
 
-    def _build_deeplink(self, group_db_id: Optional[int]) -> Optional[str]:
-        """Собирает t.me/<bot>?start=ag{N}_g{GID} если таргет — bot."""
+    def _build_deeplink(self, group_db_id: Optional[int],
+                        variant_id: Optional[str] = None) -> Optional[str]:
+        """Собирает ссылку с атрибуцией под текущий target_type.
+
+        bot:     t.me/<bot>?start=ag{N}_g{GID}[_v{V}]
+        channel: t.me/<gatekeeper>?start=chag{N}_g{GID}[_v{V}]  если задан
+                 gatekeeper, иначе CHANNEL_INVITE_LINK или t.me/<channel>
+        group:   t.me/<group>
+        """
         try:
             target = getattr(self.llm, "referral_target", REFERRAL_BOT) or REFERRAL_BOT
             target_type = getattr(self.llm, "target_type", "bot")
-            if target_type != "bot" or not target.startswith("@"):
-                # Для group-таргета даём прямую ссылку без UTM
-                if target_type == "group" and target.startswith("@"):
+            gid = group_db_id if group_db_id is not None else 0
+            v_suffix = f"_v{variant_id}" if variant_id else ""
+
+            if target_type == "bot" and target.startswith("@"):
+                bot_name = target.lstrip("@")
+                return f"https://t.me/{bot_name}?start=ag{self.agent_id}_g{gid}{v_suffix}"
+
+            if target_type == "channel":
+                if CHANNEL_GATEKEEPER_BOT:
+                    gk = CHANNEL_GATEKEEPER_BOT.lstrip("@")
+                    return f"https://t.me/{gk}?start=chag{self.agent_id}_g{gid}{v_suffix}"
+                if CHANNEL_INVITE_LINK:
+                    return CHANNEL_INVITE_LINK
+                if target.startswith("@"):
                     return f"https://t.me/{target.lstrip('@')}"
                 return None
-            bot_name = target.lstrip("@")
-            gid = group_db_id if group_db_id is not None else 0
-            return f"https://t.me/{bot_name}?start=ag{self.agent_id}_g{gid}"
+
+            if target_type == "group" and target.startswith("@"):
+                return f"https://t.me/{target.lstrip('@')}"
+            return None
         except Exception:
             return None
 
-    def _inject_deeplink(self, text: str, group_db_id: int) -> str:
-        """Подменяет @bot_username на полный deep-link с UTM для атрибуции.
+    def _inject_deeplink(self, text: str, group_db_id: int,
+                         variant_id: Optional[str] = None) -> str:
+        """Подменяет @target_username на полный deep-link с UTM для атрибуции.
 
-        Работает только для bot-таргетов (для групп оставляет как есть).
-        Параметр start=ag{agent}_g{group} читается ботом в /start handler.
+        Работает для bot и channel (через gatekeeper). Для group — оставляет
+        @username (Telegram сам сделает кликабельным). variant_id зашивается в
+        payload для CTR-аналитики.
         """
         if not text:
             return text
         try:
             target = getattr(self.llm, "referral_target", REFERRAL_BOT) or REFERRAL_BOT
             target_type = getattr(self.llm, "target_type", "bot")
-            if target_type != "bot" or not target.startswith("@"):
+            if target_type not in ("bot", "channel") or not target.startswith("@"):
                 return text
-            bot_name = target.lstrip("@")
-            deeplink = f"https://t.me/{bot_name}?start=ag{self.agent_id}_g{group_db_id}"
-            return text.replace(target, deeplink)
+            link = self._build_deeplink(group_db_id, variant_id=variant_id)
+            if not link:
+                return text
+            return text.replace(target, link)
         except Exception:
             return text
 

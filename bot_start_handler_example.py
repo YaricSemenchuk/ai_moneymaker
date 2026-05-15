@@ -1,16 +1,23 @@
-"""ГОТОВЫЙ К КОПИПАСТЕ snippet для @moneymakerquest_bot.
+"""ГОТОВЫЙ К КОПИПАСТЕ snippet для @moneymakerquest_bot
+И для бота-привратника канала (channel gatekeeper).
 
 Этот файл живёт в ЭТОМ репо как референс — но логику надо скопировать
-в код самого бота (@moneymakerquest_bot, отдельный сервис на Railway).
+в код самого бота (@moneymakerquest_bot или новый @<gatekeeper>_bot,
+отдельный сервис на Railway).
 
 Что делает:
 - Перехватывает /start <payload>
 - Отправляет атрибуцию в дашборд агента по HTTPS с HMAC-подписью
-- Дальше показывает свой обычный приветственный экран
+- Если payload — `chag{N}_g{M}[_v{V}]` (channel-gatekeeper) — после
+  атрибуции отдаёт юзеру инвайт-ссылку в канал. См. cmd_start_gatekeeper.
+- Иначе показывает свой обычный приветственный экран.
 
-ENV, которые надо добавить в Railway для @moneymakerquest_bot:
+ENV, которые надо добавить в Railway для бота:
   TRACK_SECRET=<тот же что в env агента>
   TRACK_URL=https://<твой-агент>.up.railway.app/api/track-signup
+  # только для channel-gatekeeper:
+  CHANNEL_INVITE_LINK=https://t.me/+abc123   # из настроек приватного канала
+  CHANNEL_PUBLIC=@moneymaker_channel         # если канал публичный, можно вместо invite
 
 Зависимости: requests (он почти везде уже есть).
 """
@@ -100,10 +107,41 @@ def track_signup_async(telegram_user_id: int, payload: Optional[str]) -> None:
 
 
 # ============================================================
+# === CHANNEL GATEKEEPER (B2) ================================
+# ============================================================
+# Отдельный бот-привратник для type=channel: получает /start chag{N}_g{M}_v{V},
+# трекает атрибуцию И отдаёт юзеру инвайт-ссылку в канал. Так мы получаем
+# точную аттрибуцию по агенту/группе/CTA-варианту даже когда таргет — канал.
+#
+# CHANNEL_INVITE_LINK = os.getenv("CHANNEL_INVITE_LINK", "")  # https://t.me/+hash
+# CHANNEL_PUBLIC = os.getenv("CHANNEL_PUBLIC", "")            # @moneymaker_channel
+#
+# def _channel_link() -> str:
+#     return CHANNEL_INVITE_LINK or (f"https://t.me/{CHANNEL_PUBLIC.lstrip('@')}" if CHANNEL_PUBLIC else "")
+#
+# --- aiogram 3.x пример ---
+# @router.message(CommandStart())
+# async def cmd_start_gatekeeper(msg: Message, command: CommandObject):
+#     payload = command.args or ""
+#     track_signup_async(msg.from_user.id, payload)
+#     link = _channel_link()
+#     if payload.startswith("chag") and link:
+#         await msg.answer(
+#             f"Привет! Вот канал по теме — там каждый день разбор:\n{link}",
+#             disable_web_page_preview=False,
+#         )
+#     else:
+#         await msg.answer("Привет! Тут задания за USDT...")
+#
+# ============================================================
 # Аналитика — данные доступны в дашборде агента:
 #   GET /api/conversions/summary?hours=24
+#   GET /api/cta-stats?hours=168   ← CTR по A/B-вариантам CTA
 #   GET /groups (там колонка signups)
 # Или SQL прямо в agent.db:
 #   SELECT agent_id, COUNT(*) FROM signup_sources
 #   WHERE agent_id IS NOT NULL GROUP BY agent_id ORDER BY 2 DESC;
+#   -- CTR по варианту:
+#   SELECT cta_variant, COUNT(*) FROM signup_sources
+#   WHERE cta_variant IS NOT NULL GROUP BY cta_variant;
 # ============================================================
