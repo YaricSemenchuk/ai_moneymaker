@@ -310,6 +310,11 @@ class SingleAgent:
                         await self._try_react(message)
                     return
 
+                # Жёсткий circuit breaker: агент на паузе → не делаем ничего.
+                if self.ban_manager.is_agent_paused(self.agent_id):
+                    logger.debug(f"{self.log_prefix} paused, skip reply")
+                    return
+
                 # Защита: если агент в зоне риска (3+ бана/failed за 24ч)
                 # — отвечаем только на ОЧЕНЬ интересные сообщения (interest > 0.5)
                 if self.ban_manager.is_agent_at_risk(self.agent_id) and interest < 0.5:
@@ -509,6 +514,11 @@ class SingleAgent:
 
         while True:
             try:
+                # Жёсткая пауза агента — пропускаем весь цикл целиком.
+                if self.ban_manager.is_agent_paused(self.agent_id):
+                    await asyncio.sleep(60)
+                    continue
+
                 # БЫСТРАЯ часть - каждый цикл (~20 сек)
                 await self._process_pending_groups()  # включает и поиски
 

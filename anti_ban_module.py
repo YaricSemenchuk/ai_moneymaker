@@ -9,6 +9,7 @@ from config_agent import (
     MAX_MESSAGES_PER_HOUR, MAX_GROUPS_TO_JOIN_PER_DAY,
     AT_RISK_THRESHOLD_24H, AT_RISK_FAIL_THRESHOLD_24H,
     MAX_TOTAL_ACTIONS_PER_DAY,
+    HARD_PAUSE_BANS_24H, HARD_PAUSE_FAILS_24H, HARD_PAUSE_HOURS,
 )
 
 logger = logging.getLogger(__name__)
@@ -201,6 +202,46 @@ class AntiBanManager:
                 )
                 self._risk_warn_at[('budget', agent_id)] = now
         return ok
+
+    def is_agent_paused(self, agent_id: int) -> bool:
+        """Жёсткий circuit breaker: True если у агента активная пауза в БД.
+
+        При вызове также авто-эскалирует: если порог HARD_PAUSE_* перейдён,
+        ставим паузу прямо здесь и шлём алерт админу (один раз).
+        """
+        try:
+            info = self.db.get_agent_pause(agent_id)
+            if info and info.get("active"):
+                return True
+        except Exception:
+            info = None
+
+        # Авто-триггер circuit breaker'а: пересчитываем пороги
+        try:
+            bans = self.get_recent_bans_count(agent_id, hours=24)
+            fails = self.get_recent_fails_count(agent_id, hours=24)
+        except Exception:
+            return False
+
+        if bans >= HARD_PAUSE_BANS_24H or fails >= HARD_PAUSE_FAILS_24H:
+            reason = f"auto: bans={bans}/24h fails={fails}/24h"
+            try:
+                self.db.pause_agent(agent_id, HARD_PAUSE_HOURS, reason)
+                logger.error(
+                    f"⛔ Agent {agent_id} HARD-PAUSED for {HARD_PAUSE_HOURS}h ({reason})"
+                )
+                # Fire-and-forget алерт (если настроен админ-бот)
+                try:
+                    from admin_notifier import notify_text
+                    notify_text(
+                        f"⛔ Agent {agent_id} paused {HARD_PAUSE_HOURS}h\n{reason}"
+                    )
+                except Exception:
+                    pass
+            except Exception as e:
+                logger.warning(f"pause_agent({agent_id}) failed: {e}")
+            return True
+        return False
 
     def is_agent_at_risk(self, agent_id: int) -> bool:
         """Проверяет, не в зоне ли риска агент.

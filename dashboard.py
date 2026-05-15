@@ -108,6 +108,9 @@ def _enforce_tg_auth():
     # /api/track-signup использует свой HMAC, не Telegram initData.
     if request.path == "/api/track-signup":
         return None
+    # /health — публичный пинг для Railway healthcheck.
+    if request.path == "/health":
+        return None
     if not BOT_TOKEN or not ALLOWED_USER_IDS:
         return ("Auth not configured: set BOT_TOKEN and ALLOWED_USER_IDS env vars", 503)
 
@@ -1938,6 +1941,51 @@ def api_conversions_summary():
         "by_group": db.get_signups_by_group(hours, limit=20),
         "window_hours": hours,
     })
+
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Публичный healthcheck для Railway/uptime-мониторов.
+
+    Возвращает 200 если БД открывается, иначе 503.
+    Не требует Telegram-auth — отдельно отфильтровано в _enforce_tg_auth.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=2)
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+        conn.close()
+        return jsonify({"ok": True, "db": "ok"}), 200
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)[:200]}), 503
+
+
+@app.route('/api/agents/<int:agent_id>/pause', methods=['POST'])
+def api_agent_pause(agent_id: int):
+    """Ручная пауза агента через дашборд."""
+    from agent_database import AgentDatabase
+    db = AgentDatabase(DB_PATH)
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        hours = int(data.get("hours", 24))
+        reason = (data.get("reason") or "manual via dashboard")[:500]
+        db.pause_agent(agent_id, hours, reason)
+        return jsonify({"ok": True, "agent_id": agent_id, "hours": hours})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route('/api/agents/<int:agent_id>/unpause', methods=['POST'])
+def api_agent_unpause(agent_id: int):
+    """Снять паузу с агента."""
+    from agent_database import AgentDatabase
+    db = AgentDatabase(DB_PATH)
+    try:
+        db.unpause_agent(agent_id)
+        return jsonify({"ok": True, "agent_id": agent_id})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
 
 
 if __name__ == '__main__':

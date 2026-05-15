@@ -285,6 +285,9 @@ class ProactiveModule:
         try:
             from anti_ban_module import AntiBanManager
             _ban = AntiBanManager(self.db)
+            if _ban.is_agent_paused(self.agent_id):
+                logger.info(f"⛔ Agent {self.agent_id} paused — skipping proactive post")
+                return False
             if not _ban.has_daily_action_budget(self.agent_id):
                 return False
             if _ban.is_agent_at_risk(self.agent_id):

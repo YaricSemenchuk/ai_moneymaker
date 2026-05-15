@@ -143,11 +143,15 @@ class AgentDatabase:
             pass  # уже добавлена
 
         # Миграция: per-account proxy + device для антибана/тдата-импорта
+        # paused_until — circuit breaker: до этой метки агент не шлёт ничего
+        # (ставится при пересечении HARD_PAUSE_BANS_24H).
         for col_def in [
             ('proxy_url',     'ALTER TABLE agent_accounts ADD COLUMN proxy_url TEXT'),
             ('device_model',  'ALTER TABLE agent_accounts ADD COLUMN device_model TEXT'),
             ('system_version','ALTER TABLE agent_accounts ADD COLUMN system_version TEXT'),
             ('app_version',   'ALTER TABLE agent_accounts ADD COLUMN app_version TEXT'),
+            ('paused_until',  'ALTER TABLE agent_accounts ADD COLUMN paused_until TIMESTAMP'),
+            ('pause_reason',  'ALTER TABLE agent_accounts ADD COLUMN pause_reason TEXT'),
         ]:
             try:
                 cursor.execute(col_def[1])
@@ -450,6 +454,48 @@ class AgentDatabase:
         row = cursor.fetchone()
         conn.close()
         return row[0] if row and row[0] else None
+
+    # --- Circuit breaker (hard pause) ---
+
+    def pause_agent(self, agent_id: int, hours: int, reason: str) -> None:
+        """Ставит агента на жёсткую паузу до datetime('now', '+Nh')."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE agent_accounts SET paused_until = datetime('now', ?), "
+            "pause_reason = ? WHERE id = ?",
+            (f'+{int(hours)} hours', reason[:500], agent_id),
+        )
+        conn.commit()
+        conn.close()
+
+    def unpause_agent(self, agent_id: int) -> None:
+        """Снимает паузу вручную (например через дашборд)."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE agent_accounts SET paused_until = NULL, pause_reason = NULL WHERE id = ?",
+            (agent_id,),
+        )
+        conn.commit()
+        conn.close()
+
+    def get_agent_pause(self, agent_id: int) -> Optional[Dict]:
+        """Возвращает {until, reason, active} если есть запись о паузе, иначе None."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT paused_until, pause_reason, "
+            "CASE WHEN paused_until IS NOT NULL AND paused_until > datetime('now') "
+            "THEN 1 ELSE 0 END AS active "
+            "FROM agent_accounts WHERE id = ?",
+            (agent_id,),
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return {"until": row[0], "reason": row[1], "active": bool(row[2])}
 
     # --- Target Groups ---
 
