@@ -707,13 +707,10 @@ class SingleAgent:
                 if should_run:
                     last_run_date = slot_key
 
-                    # Проверяем дежурство: только AUTO_SCOUT_AGENTS_PER_DAY
-                    # случайных агентов дежурят сегодня.
-                    if not self._is_scout_duty_today():
-                        logger.debug(f"{self.log_prefix} 💤 Не дежурю сегодня — scout пропуск")
-                        await asyncio.sleep(300)
-                        continue
-                    logger.info(f"{self.log_prefix} 🎖️ Сегодня я дежурю по парсингу групп")
+                    # Раньше дежурили только AUTO_SCOUT_AGENTS_PER_DAY агентов
+                    # детерминированно по дате — это тормозило обновление пула групп.
+                    # Теперь все агенты скаутят независимо каждый слот.
+                    logger.info(f"{self.log_prefix} 🔍 Запускаю парсинг групп")
 
                     # Случайная задержка ±30 мин для непредсказуемости
                     jitter = random.randint(-AUTO_SCOUT_TIME_JITTER, AUTO_SCOUT_TIME_JITTER)

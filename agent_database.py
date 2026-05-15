@@ -321,6 +321,23 @@ class AgentDatabase:
             )
         ''')
 
+        # Индексы под hot-queries из anti_ban_module и proactive_module:
+        # count actions today, count proactive today, фильтр групп по статусу.
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_interactions_agent_created ON interactions(agent_id, created_at)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_interactions_status_created ON interactions(status, created_at)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_proactive_agent_created ON proactive_posts(agent_id, created_at)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_proactive_group_created ON proactive_posts(group_id, created_at)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_target_groups_status ON target_groups(status)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_target_groups_tg_id ON target_groups(telegram_group_id)')
+
+        # WAL — снимает блокировку reader↔writer (дашборд + агенты часто конкурируют).
+        # PRAGMA journal_mode=WAL персистентна (хранится в БД-файле), синхрон NORMAL безопасен с WAL.
+        try:
+            cursor.execute('PRAGMA journal_mode=WAL')
+            cursor.execute('PRAGMA synchronous=NORMAL')
+        except Exception:
+            pass
+
         conn.commit()
         conn.close()
 

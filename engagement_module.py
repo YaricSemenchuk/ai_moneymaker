@@ -8,6 +8,7 @@ from agent_database import AgentDatabase
 from llm_analyzer import LLMAnalyzer
 from config_agent import (
     REFERRAL_BOT, REPLY_VIA_DM, DM_FALLBACK_TO_GROUP,
+    REPLY_GROUP_INCLUDES_LINK, LISTENING_INTEREST_THRESHOLD,
     GROUP_TITLE_BLACKLIST, SLOWMODE_BACKOFF_MULTIPLIER, SLOWMODE_MIN_COOLDOWN_SEC,
 )
 # shared cooldown dict с proactive_module
@@ -111,15 +112,28 @@ class EngagementModule:
                 logger.warning("Empty message text")
                 return False, "EMPTY"
 
-            # === HARD BLOCK: обвинение + промо-ссылка ===
+            # === SOFTENED BLOCK: обвинение + промо-ссылка ===
+            # Раньше: silent drop всего сообщения.
+            # Теперь: пытаемся вырезать обвинительные фразы и оставить промо.
+            # Если после очистки от текста почти ничего не осталось — только тогда блок.
             acc = ACCUSATION_RE.search(message_text)
             promo = PROMO_RE.search(message_text)
             if acc and promo:
-                logger.warning(
-                    f"🛡️ Блок: обвинение ('{acc.group(0)}') + промо ('{promo.group(0)}') в одном сообщении. "
-                    f"Текст: '{message_text[:120]}...'"
-                )
-                return False, "ACCUSATION_PROMO_BLOCK"
+                cleaned = ACCUSATION_RE.sub("", message_text)
+                # схлопываем двойные пробелы и пунктуацию
+                cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,.!?;:-")
+                if len(cleaned) >= 20 and PROMO_RE.search(cleaned):
+                    logger.info(
+                        f"🧹 Стрипнул обвинения ('{acc.group(0)}'), отправляю очищенный текст. "
+                        f"До: '{message_text[:100]}' | После: '{cleaned[:100]}'"
+                    )
+                    message_text = cleaned
+                else:
+                    logger.warning(
+                        f"🛡️ Блок: обвинение ('{acc.group(0)}') + промо ('{promo.group(0)}'), "
+                        f"очистить нечем. Текст: '{message_text[:120]}...'"
+                    )
+                    return False, "ACCUSATION_PROMO_BLOCK"
 
             # === LEARNED RULES CHECK ===
             # Проверяем против правил выученных из прошлых банов
@@ -345,8 +359,8 @@ class EngagementModule:
             analysis = self.llm.analyze_message(message_text)
 
             # Решаем отвечать ли
-            if analysis["interest_level"] < 0.15:
-                logger.debug(f"Message not relevant enough: {analysis['interest_level']}")
+            if analysis["interest_level"] < LISTENING_INTEREST_THRESHOLD:
+                logger.debug(f"Message not relevant enough: {analysis['interest_level']} < {LISTENING_INTEREST_THRESHOLD}")
                 return False
 
             logger.info(f"Processing relevant message from user {user_id}")
@@ -377,10 +391,15 @@ class EngagementModule:
                 if dm_ok:
                     sent_to_dm = True
                     success = True
-                    # Хук в группе — БЕЗ ссылки, БЕЗ @упоминаний
-                    hook = self._make_group_hook(message.from_user)
+                    # Хук в группе. Если REPLY_GROUP_INCLUDES_LINK — добавляем
+                    # диплинк прямо в группу (главный рычаг трафика: юзеры видят
+                    # CTA в контексте, не нужно открывать DM от незнакомца).
+                    hook = self._make_group_hook(
+                        message.from_user,
+                        group_db_id=group_db_id,
+                        include_link=REPLY_GROUP_INCLUDES_LINK,
+                    )
                     if hook:
-                        # Reply to original message, не отдельным сообщением
                         try:
                             await self.client.send_message(
                                 group_id, hook,
@@ -425,11 +444,13 @@ class EngagementModule:
             logger.error(f"Error handling message: {e}")
             return False
 
-    def _make_group_hook(self, from_user) -> Optional[str]:
-        """Короткий хук в группе без ссылок — приглашает в ЛС.
+    def _make_group_hook(self, from_user, group_db_id: Optional[int] = None,
+                         include_link: bool = False) -> Optional[str]:
+        """Короткий хук в группе.
 
-        Цель: не палить промо в группе (модераторы режут @mentions и t.me),
-        но дать понять что развернутый ответ ушёл в личку.
+        include_link=False (старое поведение): только намёк на ЛС, без ссылок.
+        include_link=True: добавляем диплинк → главный рычаг конверсии, юзеры
+        видят CTA в контексте обсуждения, не открывая DM от незнакомца.
         """
         import random
         name = ""
@@ -438,6 +459,25 @@ class EngagementModule:
                 name = from_user.first_name.split()[0]
         except Exception:
             pass
+
+        if include_link:
+            link = self._build_deeplink(group_db_id)
+            if link:
+                variants_named = [
+                    f"{name}, держи — {link}",
+                    f"{name}, вот тут смотри: {link}",
+                    f"{name}, попробуй это {link}",
+                    f"{name}, я отсюда тащу — {link}",
+                ]
+                variants_anon = [
+                    f"вот, держи — {link}",
+                    f"попробуй: {link}",
+                    f"я отсюда — {link}",
+                    f"тут смотри {link}",
+                ]
+                return random.choice(variants_named if name else variants_anon)
+            # link недоступен — fallback на старый хук
+
         variants_named = [
             f"{name}, скинул в лс — там подробнее",
             f"{name}, написал тебе в личку",
@@ -449,6 +489,22 @@ class EngagementModule:
             "отправил в лс",
         ]
         return random.choice(variants_named if name else variants_anon)
+
+    def _build_deeplink(self, group_db_id: Optional[int]) -> Optional[str]:
+        """Собирает t.me/<bot>?start=ag{N}_g{GID} если таргет — bot."""
+        try:
+            target = getattr(self.llm, "referral_target", REFERRAL_BOT) or REFERRAL_BOT
+            target_type = getattr(self.llm, "target_type", "bot")
+            if target_type != "bot" or not target.startswith("@"):
+                # Для group-таргета даём прямую ссылку без UTM
+                if target_type == "group" and target.startswith("@"):
+                    return f"https://t.me/{target.lstrip('@')}"
+                return None
+            bot_name = target.lstrip("@")
+            gid = group_db_id if group_db_id is not None else 0
+            return f"https://t.me/{bot_name}?start=ag{self.agent_id}_g{gid}"
+        except Exception:
+            return None
 
     def _inject_deeplink(self, text: str, group_db_id: int) -> str:
         """Подменяет @bot_username на полный deep-link с UTM для атрибуции.

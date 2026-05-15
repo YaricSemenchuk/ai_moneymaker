@@ -1,5 +1,5 @@
+import asyncio
 import random
-import time
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List
@@ -230,12 +230,11 @@ class AntiBanManager:
             return True
         return False
 
-    def random_human_like_behavior(self):
+    async def random_human_like_behavior(self):
         """Имитирует человеческое поведение (случайные паузы и действия)."""
-        # Случайная пауза 10-60 сек
         pause = random.uniform(10, 60)
         logger.debug(f"Human-like pause: {pause:.1f}s")
-        time.sleep(pause)
+        await asyncio.sleep(pause)
 
     def get_agent_status(self, agent_id: int) -> Dict:
         """Возвращает статус агента."""
@@ -269,11 +268,11 @@ class AntiBanManager:
             "can_join": joins < MAX_GROUPS_TO_JOIN_PER_DAY
         }
 
-    def wait_with_delay(self, agent_id: int):
+    async def wait_with_delay(self, agent_id: int):
         """Ожидает с рандомной задержкой."""
         delay = self.get_delay(agent_id)
         logger.debug(f"Waiting {delay:.1f} seconds...")
-        time.sleep(delay)
+        await asyncio.sleep(delay)
 
     def reset_logs(self, days: int = 7):
         """Очищает логи старше N дней."""

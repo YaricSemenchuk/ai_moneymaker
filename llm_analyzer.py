@@ -260,8 +260,24 @@ class LLMAnalyzer:
             "intent": intent
         }
 
+    # Таймаут на одну модель. Раньше 30с × 6 моделей = до 3 минут блокировки
+    # на одном LLM-вызове, что фактически вешало message handler.
+    _PER_MODEL_TIMEOUT = 12
+    # После 2 подряд провалов считаем модель "битой" и пропускаем 5 минут.
+    _MODEL_COOLDOWN_AFTER_FAILS = 2
+    _MODEL_COOLDOWN_SEC = 300
+    _model_failures: Dict[str, int] = {}
+    _model_skip_until: Dict[str, float] = {}
+
     def _make_request(self, messages: list, temperature: float = 0.7) -> Optional[str]:
-        """Делает запрос к OpenRouter API с автопереключением моделей при ошибке."""
+        """Делает запрос к OpenRouter API с автопереключением моделей при ошибке.
+
+        Оптимизации:
+        - таймаут на модель 12с вместо 30с (free модели медленнее = бесполезны)
+        - модель с 2+ подряд провалами уходит в cooldown на 5 минут (не дёргаем)
+        - удачная модель всегда первая в списке
+        """
+        import time as _t
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -270,9 +286,12 @@ class LLMAnalyzer:
         }
 
         last_error = None
+        now = _t.time()
 
-        # Перебираем модели до первой успешной
         for model in self.models_to_try:
+            # Пропускаем модели в cooldown
+            if self._model_skip_until.get(model, 0) > now:
+                continue
             try:
                 payload = {
                     "model": model,
@@ -285,41 +304,63 @@ class LLMAnalyzer:
                     f"{self.base_url}/chat/completions",
                     headers=headers,
                     json=payload,
-                    timeout=30
+                    timeout=self._PER_MODEL_TIMEOUT,
                 )
 
                 if response.status_code == 200:
                     result = response.json()
                     if "choices" in result and result["choices"]:
-                        # Если переключились на новую модель — запоминаем как основную
+                        self._model_failures[model] = 0
                         if model != self.model:
                             logger.info(f"🔄 Switched to working model: {model}")
                             self.model = model
-                            # Перемещаем работающую модель в начало списка
                             self.models_to_try = [model] + [m for m in self.models_to_try if m != model]
                         return result["choices"][0]["message"]["content"].strip()
 
                 elif response.status_code == 429:
                     logger.warning(f"⚠️  Rate limit on {model}, trying next...")
                     last_error = f"429 on {model}"
-                    continue
-
                 else:
                     logger.warning(f"❌ {model} failed: {response.status_code}")
                     last_error = f"{response.status_code} on {model}"
-                    continue
 
+            except requests.exceptions.Timeout:
+                logger.warning(f"⏱️  Timeout >{self._PER_MODEL_TIMEOUT}s on {model}")
+                last_error = f"timeout on {model}"
             except requests.exceptions.RequestException as e:
                 logger.warning(f"Request error on {model}: {e}")
                 last_error = str(e)
-                continue
             except Exception as e:
                 logger.warning(f"Error on {model}: {e}")
                 last_error = str(e)
-                continue
+
+            # Регистрируем фейл этой модели
+            self._model_failures[model] = self._model_failures.get(model, 0) + 1
+            if self._model_failures[model] >= self._MODEL_COOLDOWN_AFTER_FAILS:
+                self._model_skip_until[model] = now + self._MODEL_COOLDOWN_SEC
+                logger.info(f"💤 {model} → cooldown {self._MODEL_COOLDOWN_SEC}s after {self._model_failures[model]} fails")
 
         logger.error(f"❌ All models failed. Last error: {last_error}")
         return None
+
+    # Шаблоны на случай полного отказа LLM — лучше отправить generic-ответ
+    # с диплинком, чем потерять hot-lead полностью.
+    _FALLBACK_TEMPLATES_RU = [
+        "у меня норм идёт через {target} — попробуй, простые задания за usdt",
+        "сам(а) сижу на {target}, мелочь капает стабильно — глянь",
+        "если ищешь подработку — {target}, там короткие задания с выплатой",
+        "посмотри {target}, я отсюда тащу — мне ок зашло",
+    ]
+    _FALLBACK_TEMPLATES_EN = [
+        "I'm on {target}, small tasks paid in usdt — check it out",
+        "try {target}, decent for side income",
+        "if you're looking for side gigs — {target}, quick tasks with payouts",
+    ]
+
+    def _template_fallback(self, language: str) -> str:
+        import random as _r
+        pool = self._FALLBACK_TEMPLATES_RU if language == "ru" else self._FALLBACK_TEMPLATES_EN
+        return _r.choice(pool).format(target=self.referral_target)
 
     def generate_response(self, original_message: str, user_context: str = "") -> Optional[str]:
         """
@@ -379,10 +420,12 @@ Reply with just the response text, no explanations:"""
 
         if response:
             logger.info(f"Generated response: {response[:100]}...")
-        else:
-            logger.warning("Failed to generate response from OpenRouter")
+            return response
 
-        return response
+        # Fallback: LLM полностью лёг — лучше шаблон с диплинком чем тишина.
+        fallback = self._template_fallback(language)
+        logger.warning(f"LLM failed → template fallback: {fallback[:80]}")
+        return fallback
 
     def is_relevant(self, message: str, keywords: list = None) -> bool:
         """
