@@ -158,6 +158,23 @@ class ProactiveModule:
         # Группы где агент состоит (joined) ИЛИ уже активен (active)
         groups = self.db.get_groups_by_statuses(["joined", "active"], limit=200)
 
+        # Постим ТОЛЬКО в группы, где этот агент реально состоит. Иначе
+        # Telegram вернёт CHANNEL_INVALID — агент не член чужой группы
+        # (target_groups.status='joined' глобальный, его выставил другой агент).
+        try:
+            member_ids = {
+                m["group_id"]
+                for m in self.db.get_agent_memberships(self.agent_id, ["joined"])
+            }
+        except Exception:
+            member_ids = set()
+        if member_ids:
+            before = len(groups)
+            groups = [g for g in groups if g["id"] in member_ids]
+            logger.debug(
+                f"Agent {self.agent_id}: membership filter {before}→{len(groups)}"
+            )
+
         # Назначенные этому агенту группы (если есть ≥1 — постим только в них).
         assigned_ids = set(self.db.get_assigned_group_ids(self.agent_id))
         if assigned_ids:
