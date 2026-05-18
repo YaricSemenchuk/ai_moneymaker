@@ -11,6 +11,7 @@ from config_agent import (
     REPLY_GROUP_INCLUDES_LINK, LISTENING_INTEREST_THRESHOLD,
     GROUP_TITLE_BLACKLIST, SLOWMODE_BACKOFF_MULTIPLIER, SLOWMODE_MIN_COOLDOWN_SEC,
     CTA_VARIANTS, CHANNEL_GATEKEEPER_BOT, CHANNEL_INVITE_LINK,
+    REFERRAL_MINIAPP_SHORTNAME,
 )
 # shared cooldown dict с proactive_module
 from proactive_module import _slowmode_cooldowns
@@ -532,7 +533,12 @@ class EngagementModule:
 
             if target_type == "bot" and target.startswith("@"):
                 bot_name = target.lstrip("@")
-                return f"https://t.me/{bot_name}?start=ag{self.agent_id}_g{gid}{v_suffix}"
+                payload = f"ag{self.agent_id}_g{gid}{v_suffix}"
+                # Mini App: payload должен приходить как start_param → ?startapp=
+                # (?start= открывает чат-команду и start_param в Mini App не доходит).
+                if REFERRAL_MINIAPP_SHORTNAME:
+                    return f"https://t.me/{bot_name}/{REFERRAL_MINIAPP_SHORTNAME}?startapp={payload}"
+                return f"https://t.me/{bot_name}?startapp={payload}"
 
             if target_type == "channel":
                 if CHANNEL_GATEKEEPER_BOT:
@@ -568,7 +574,11 @@ class EngagementModule:
             link = self._build_deeplink(group_db_id, variant_id=variant_id)
             if not link:
                 return text
-            return text.replace(target, link)
+            if target in text:
+                return text.replace(target, link)
+            # LLM не упомянул @target — иначе питч уходит без пути к конверсии.
+            # Дописываем ссылку отдельной строкой, чтобы CTA был всегда.
+            return f"{text.rstrip()}\n{link}"
         except Exception:
             return text
 

@@ -219,9 +219,16 @@ class ProactiveModule:
             logger.info(f"⏳ All {len(groups)} joined groups are in cooldown")
             return None
 
-        # Выбираем случайную из подходящих
-        chosen = random.choice(eligible)
-        logger.info(f"🎯 Selected group: {chosen['title']} (id={chosen['id']})")
+        # Приоритезация: больше шанс попасть в группу, где скопилось больше
+        # необработанных тёплых new-лидов (avg_interest >= 0.4). Базовый вес 1,
+        # плюс по 1 за каждого горячего лида — так пост точечно "дожимает".
+        hot = self.db.count_hot_leads_by_group(min_interest=0.4)
+        weights = [1 + hot.get(g["id"], 0) for g in eligible]
+        chosen = random.choices(eligible, weights=weights, k=1)[0]
+        logger.info(
+            f"🎯 Selected group: {chosen['title']} (id={chosen['id']}, "
+            f"hot_leads={hot.get(chosen['id'], 0)})"
+        )
         return chosen
 
     async def generate_post(self, language: str = "ru") -> Optional[Dict]:
@@ -322,7 +329,16 @@ class ProactiveModule:
             v = post_data.get("template") or "tpl"  # имя шаблона как vid
             if target_type == "bot" and target and target.startswith("@"):
                 bot_name = target.lstrip("@")
-                deeplink = f"https://t.me/{bot_name}?start=ag{self.agent_id}_g{group['id']}_v{v}"
+                payload = f"ag{self.agent_id}_g{group['id']}_v{v}"
+                # Mini App: ?startapp= (не ?start=) — иначе start_param не дойдёт.
+                try:
+                    from config_agent import REFERRAL_MINIAPP_SHORTNAME as _sn
+                except Exception:
+                    _sn = ""
+                if _sn:
+                    deeplink = f"https://t.me/{bot_name}/{_sn}?startapp={payload}"
+                else:
+                    deeplink = f"https://t.me/{bot_name}?startapp={payload}"
                 post_data["text"] = post_data["text"].replace(target, deeplink)
             elif target_type == "channel":
                 try:

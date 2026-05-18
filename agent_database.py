@@ -538,6 +538,28 @@ class AgentDatabase:
             'is_channel': bool(row[8]), 'linked_chat_id': row[9]
         } for row in rows]
 
+    def count_hot_leads_by_group(self, min_interest: float = 0.4) -> Dict[int, int]:
+        """Считает 'горячих' new-лидов по группам последнего появления.
+
+        Возвращает {group_db_id: count} — сколько профилей со статусом 'new'
+        и avg_interest_level >= min_interest засветились в этой группе.
+        Используется для приоритезации проактивных постов в группы,
+        где скопилось больше необработанных тёплых лидов.
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT last_group_id, COUNT(*)
+            FROM user_profiles
+            WHERE status = 'new'
+              AND avg_interest_level >= ?
+              AND last_group_id IS NOT NULL
+            GROUP BY last_group_id
+        ''', (min_interest,))
+        rows = cursor.fetchall()
+        conn.close()
+        return {row[0]: row[1] for row in rows}
+
     def get_target_groups(self, status: str = 'discovered', limit: int = 100) -> List[Dict]:
         """Get target groups by status."""
         conn = self.get_connection()

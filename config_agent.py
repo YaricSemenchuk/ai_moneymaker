@@ -258,6 +258,10 @@ TRACK_SECRET = os.getenv("TRACK_SECRET", "")
 # Публичный URL дашборда (для @moneymakerquest_bot, чтобы он знал куда стучать).
 # На Railway это что-то вроде https://moneymaker-agent.up.railway.app
 DASHBOARD_PUBLIC_URL = os.getenv("DASHBOARD_PUBLIC_URL", "")
+# Short-name Mini App у бота-таргета (BotFather → Mini App). Если задан —
+# диплинк собирается как t.me/<bot>/<shortname>?startapp=..., иначе t.me/<bot>?startapp=...
+# Для Mini App ОБЯЗАТЕЛЬНО ?startapp= (не ?start=) — иначе start_param не дойдёт.
+REFERRAL_MINIAPP_SHORTNAME = os.getenv("REFERRAL_MINIAPP_SHORTNAME", "")
 
 # === A/B-тест CTA-формулировок ===
 # Шаблоны хука в группе. Каждый шаблон имеет id (v1, v2, ...), он логируется
