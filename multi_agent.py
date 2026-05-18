@@ -23,7 +23,7 @@ from config_agent import (
     LISTENING_INTEREST_THRESHOLD,
     REACTIONS_ENABLED, REACTION_EMOJIS, REACTION_INTEREST_MIN,
     REACTION_INTEREST_MAX, REACTIONS_MAX_PER_HOUR,
-    SESSIONS_DIR,
+    SESSIONS_DIR, GROUP_TITLE_BLACKLIST,
 )
 import random
 import time as _time
@@ -260,6 +260,12 @@ class SingleAgent:
                 except Exception:
                     chat_title = "Unknown"
 
+                # Группа в чёрном списке — отвечать там нельзя. Отсекаем СРАЗУ,
+                # до LLM-анализа и до анти-бан задержки: иначе агент впустую
+                # жжёт 20-90с ожидания на каждое сообщение чатовой блэклист-группы.
+                if any(b in chat_title.lower() for b in GROUP_TITLE_BLACKLIST):
+                    return
+
                 # Анализируем
                 analysis = self.llm.analyze_message(msg_text)
 
@@ -379,8 +385,43 @@ class SingleAgent:
         self.client.add_handler(handler)
         logger.info(f"{self.log_prefix} ✅ Message handler registered")
 
+    async def _leave_blacklisted_groups(self):
+        """Выходит из групп, чьё название попадает в GROUP_TITLE_BLACKLIST.
+
+        Агент там всё равно не отвечает (блэклист), а сидеть в группе =
+        тратить циклы на анализ её сообщений. Запускается один раз при старте.
+        Статус 'banned' включён в выборку, чтобы из группы вышли ВСЕ агенты,
+        даже после того как первый пометил её глобально.
+        """
+        try:
+            groups = self.db.get_groups_by_statuses(["joined", "active", "banned"], limit=2000)
+        except Exception as e:
+            logger.debug(f"{self.log_prefix} leave-blacklist: db error {e}")
+            return
+        left = 0
+        for g in groups:
+            title = (g.get("title") or "").lower()
+            if not any(b in title for b in GROUP_TITLE_BLACKLIST):
+                continue
+            try:
+                await self.client.leave_chat(g["telegram_group_id"])
+                left += 1
+                logger.info(f"{self.log_prefix} 🚪➖ Left blacklisted group: {g.get('title')}")
+            except Exception:
+                pass  # не состоим в группе / уже вышли — нормально
+            try:
+                self.db.blacklist_group(g["id"], reason="title blacklist auto-leave")
+            except Exception:
+                pass
+            await asyncio.sleep(random.uniform(2, 5))  # анти-FloodWait
+        if left:
+            logger.info(f"{self.log_prefix} 🧹 Вышел из {left} блэклист-групп")
+
     async def _initial_setup(self):
         """Первичная настройка: priority groups + поиск + вступление."""
+        # Чистка: выходим из блэклист-групп до всего остального.
+        await self._leave_blacklisted_groups()
+
         # Priority groups (только агент #1 их добавляет, чтобы не дублировать)
         if self.agent_id == 1 and PRIORITY_GROUPS:
             logger.info(f"{self.log_prefix} ⭐ Adding priority groups...")
