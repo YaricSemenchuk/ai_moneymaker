@@ -393,6 +393,24 @@ class SingleAgent:
         Статус 'banned' включён в выборку, чтобы из группы вышли ВСЕ агенты,
         даже после того как первый пометил её глобально.
         """
+        # Self-heal: прошлая версия помечала покинутые группы через
+        # blacklist_group() → membership.status='banned' → анти-бан считал их
+        # реальными банами. Откатываем эту ложную метку.
+        try:
+            conn = self.db.get_connection()
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE agent_group_membership SET status='left' "
+                "WHERE status='banned' AND error_message='title blacklist auto-leave'"
+            )
+            healed = cur.rowcount
+            conn.commit()
+            conn.close()
+            if healed:
+                logger.info(f"{self.log_prefix} 🩹 Сброшено {healed} ложных banned-меток от авто-выхода")
+        except Exception as e:
+            logger.debug(f"{self.log_prefix} leave-blacklist self-heal error: {e}")
+
         try:
             groups = self.db.get_groups_by_statuses(["joined", "active", "banned"], limit=2000)
         except Exception as e:
@@ -409,8 +427,10 @@ class SingleAgent:
                 logger.info(f"{self.log_prefix} 🚪➖ Left blacklisted group: {g.get('title')}")
             except Exception:
                 pass  # не состоим в группе / уже вышли — нормально
+            # Помечаем target_groups, НЕ membership — чтобы выход не считался
+            # баном. Статус 'blacklisted' исключает группу из scout/listen/proactive.
             try:
-                self.db.blacklist_group(g["id"], reason="title blacklist auto-leave")
+                self.db.update_group_status(g["id"], "blacklisted")
             except Exception:
                 pass
             await asyncio.sleep(random.uniform(2, 5))  # анти-FloodWait
