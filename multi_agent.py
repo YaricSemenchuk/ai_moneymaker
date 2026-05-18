@@ -23,7 +23,7 @@ from config_agent import (
     LISTENING_INTEREST_THRESHOLD,
     REACTIONS_ENABLED, REACTION_EMOJIS, REACTION_INTEREST_MIN,
     REACTION_INTEREST_MAX, REACTIONS_MAX_PER_HOUR,
-    SESSIONS_DIR,
+    SESSIONS_DIR, GROUP_TITLE_BLACKLIST,
 )
 import random
 import time as _time
@@ -259,6 +259,12 @@ class SingleAgent:
                     chat_title = (message.chat.title or "").encode("utf-8", "ignore").decode("utf-8") or "Unknown"
                 except Exception:
                     chat_title = "Unknown"
+
+                # Группа в чёрном списке — отвечать там нельзя. Отсекаем СРАЗУ,
+                # до LLM-анализа и до анти-бан задержки: иначе агент впустую
+                # жжёт 20-90с ожидания на каждое сообщение чатовой блэклист-группы.
+                if any(b in chat_title.lower() for b in GROUP_TITLE_BLACKLIST):
+                    return
 
                 # Анализируем
                 analysis = self.llm.analyze_message(msg_text)
