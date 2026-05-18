@@ -314,12 +314,18 @@ class LLMAnalyzer:
                 if response.status_code == 200:
                     result = response.json()
                     if "choices" in result and result["choices"]:
-                        self._model_failures[model] = 0
-                        if model != self.model:
-                            logger.info(f"🔄 Switched to working model: {model}")
-                            self.model = model
-                            self.models_to_try = [model] + [m for m in self.models_to_try if m != model]
-                        return result["choices"][0]["message"]["content"].strip()
+                        # Часть free-моделей отдаёт 200 с content=null —
+                        # это не рабочий ответ, .strip() на None падал.
+                        content = (result["choices"][0].get("message") or {}).get("content")
+                        if content and content.strip():
+                            self._model_failures[model] = 0
+                            if model != self.model:
+                                logger.info(f"🔄 Switched to working model: {model}")
+                                self.model = model
+                                self.models_to_try = [model] + [m for m in self.models_to_try if m != model]
+                            return content.strip()
+                        logger.warning(f"⚠️  {model} вернул пустой content — пробую следующую")
+                        last_error = f"empty content on {model}"
 
                 elif response.status_code == 429:
                     logger.warning(f"⚠️  Rate limit on {model}, trying next...")
