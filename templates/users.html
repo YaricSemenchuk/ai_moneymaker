@@ -49,6 +49,37 @@
     <div id="status-distribution" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
 </div>
 
+<!-- Conversions from agents -->
+<div class="bg-white rounded-lg p-6 shadow-md mb-6">
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h3 class="text-lg font-semibold text-gray-800">💰 Зашло от агентов</h3>
+        <select id="conv-window" onchange="loadConversions()"
+                class="border border-gray-300 rounded px-3 py-1 text-sm">
+            <option value="24">за 24 часа</option>
+            <option value="168" selected>за 7 дней</option>
+            <option value="720">за 30 дней</option>
+        </select>
+    </div>
+    <p class="text-xs text-gray-500 mb-4">
+        Люди, которые перешли по диплинку агента и зашли в Mini App (таблица signup_sources).
+    </p>
+    <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="bg-green-50 rounded p-3 text-center border border-green-200">
+            <div class="text-3xl font-bold text-green-700" id="conv-promo">-</div>
+            <div class="text-xs text-gray-600">от агентов</div>
+        </div>
+        <div class="bg-gray-50 rounded p-3 text-center border border-gray-200">
+            <div class="text-3xl font-bold text-gray-700" id="conv-organic">-</div>
+            <div class="text-xs text-gray-600">органика</div>
+        </div>
+        <div class="bg-blue-50 rounded p-3 text-center border border-blue-200">
+            <div class="text-3xl font-bold text-blue-700" id="conv-total">-</div>
+            <div class="text-xs text-gray-600">всего</div>
+        </div>
+    </div>
+    <div id="conv-by-agent" class="space-y-1"></div>
+</div>
+
 <!-- Filters -->
 <div class="bg-white rounded-lg p-4 shadow-md mb-6 flex flex-wrap items-center gap-3">
     <span class="font-semibold text-gray-700">Фильтр:</span>
@@ -377,8 +408,43 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') hideUserModal();
 });
 
+async function loadConversions() {
+    try {
+        const hours = document.getElementById('conv-window').value || 168;
+        const res = await fetch(`/api/conversions/summary?hours=${hours}`);
+        const data = await res.json();
+        const s = data.summary || {};
+        document.getElementById('conv-promo').textContent = s.promo || 0;
+        document.getElementById('conv-organic').textContent = s.organic || 0;
+        document.getElementById('conv-total').textContent = s.total || 0;
+
+        const byAgent = data.by_agent || [];
+        const c = document.getElementById('conv-by-agent');
+        if (byAgent.length === 0) {
+            c.innerHTML = '<p class="text-gray-400 text-sm">Пока ни одной конверсии от агентов за период.</p>';
+            return;
+        }
+        const max = Math.max(...byAgent.map(a => a.signups || 0), 1);
+        c.innerHTML = '<div class="text-xs font-semibold text-gray-500 uppercase mb-1">По агентам</div>' +
+            byAgent.map(a => {
+                const pct = Math.round((a.signups || 0) / max * 100);
+                return `
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="w-20 text-gray-700">Agent #${a.agent_id}</span>
+                    <div class="flex-1 bg-gray-100 rounded h-4 overflow-hidden">
+                        <div class="bg-green-500 h-4" style="width:${pct}%"></div>
+                    </div>
+                    <span class="w-10 text-right font-bold text-green-700">${a.signups || 0}</span>
+                </div>`;
+            }).join('');
+    } catch (err) {
+        console.error('Error loading conversions:', err);
+    }
+}
+
 loadStats();
 loadUsers();
-setInterval(() => { loadStats(); loadUsers(); }, 30000);
+loadConversions();
+setInterval(() => { loadStats(); loadUsers(); loadConversions(); }, 30000);
 </script>
 {% endblock %}
