@@ -40,6 +40,10 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Telegram user id, уже занятые залогиненными агентами — для отсева дублей
+# (один аккаунт в двух клиентах вызывает шторм ConnectionReset).
+_claimed_user_ids: set = set()
 logging.getLogger("pyrogram.session.session").setLevel(logging.ERROR)
 logging.getLogger("pyrogram.connection.connection").setLevel(logging.ERROR)
 
@@ -163,6 +167,25 @@ class SingleAgent:
             me = await self.client.get_me()
             self.my_user_id = me.id
             logger.info(f"{self.log_prefix} ✅ Logged in as {me.first_name} (id={me.id})")
+
+            # Дедуп: если другой агент уже залогинен в этот же Telegram-аккаунт —
+            # останавливаем этот. Один аккаунт в двух клиентах = конкурентные
+            # сессии и шторм ConnectionReset (сессии вышибают друг друга).
+            if me.id in _claimed_user_ids:
+                logger.warning(
+                    f"{self.log_prefix} ⚠️ Аккаунт id={me.id} уже используется "
+                    f"другим агентом — это дубль, останавливаю агента"
+                )
+                try:
+                    await self.client.stop()
+                except Exception:
+                    pass
+                try:
+                    self.db.update_agent_status(self.agent_id, "duplicate")
+                except Exception:
+                    pass
+                return False
+            _claimed_user_ids.add(me.id)
             gender = self.llm.apply_persona(me.first_name)
             gender_emoji = {'female': '👩', 'male': '👨', 'unknown': '🧑'}[gender]
             logger.info(f"{self.log_prefix} {gender_emoji} Persona: {me.first_name} → {gender}")
