@@ -195,6 +195,11 @@ GROUP_TITLE_BLACKLIST = [
     "p2p", "p-2-p", "exchange", "wechange", "swap ", "usdt обмен",
     "обмен usdt", "currency exchange", "btc обмен", "крипто обмен",
     "форекс", "forex", "трейдинг", "trading chat",
+    # азартные игры / ставки — высокий риск бана, нецелевая аудитория
+    "казино", "casino", "ставки", "ставка ", "беттинг", "betting", "bet ",
+    "букмекер", "bookmaker", "покер", "poker", "рулетка", "roulette",
+    "слоты", "slots", "лотерея", "lottery", "1xbet", "1хбет", "мелбет",
+    "melbet", "gamble", "гэмбл", "вин ", "winline", "пари ",
 ]
 
 # При SLOWMODE_WAIT — пропустить группу на (wait_sec * множитель) сек.
