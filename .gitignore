@@ -10,3 +10,5 @@ unknown_errors.txt
 .DS_Store
 *.db
 *.db-journal
+seed.tgz
+*.tgz
